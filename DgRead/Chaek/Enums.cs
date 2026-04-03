@@ -46,6 +46,19 @@ public enum ViewQuality
 }
 
 /// <summary>
+/// 창 테마
+/// </summary>
+public enum WindowTheme
+{
+	/// <summary>시스템 설정 따름</summary>
+	Default,
+	/// <summary>라이트</summary>
+	Light,
+	/// <summary>다크</summary>
+	Dark,
+}
+
+/// <summary>
 /// 책 조작
 /// </summary>
 public enum BookControl

@@ -1,0 +1,162 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+        xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+        mc:Ignorable="d" d:DesignWidth="1200" d:DesignHeight="760"
+        x:Class="DgRead.ReadWindow"
+        Title="DgRead"
+        MinWidth="550"
+        MinHeight="350"
+        ExtendClientAreaToDecorationsHint="True"
+        ExtendClientAreaChromeHints="NoChrome"
+        ExtendClientAreaTitleBarHeightHint="-1"
+        SystemDecorations="Full"
+        KeyDown="OnReadWindowKeyDown">
+    <Grid RowDefinitions="Auto,*">
+        <Border x:Name="TitleBarHost"
+                Grid.Row="0"
+                Background="{DynamicResource SystemControlBackgroundChromeMediumLowBrush}"
+                PointerPressed="OnTitleBarPointerPressed"
+                DoubleTapped="OnTitleBarDoubleTapped">
+            <Grid Height="40" ColumnDefinitions="Auto,*,Auto,Auto,Auto,Auto,Auto,Auto">
+                <TextBlock Grid.Column="0"
+                           Margin="10,0,8,0"
+                           VerticalAlignment="Center"
+                           FontSize="16"
+                           Text="📚" />
+
+                <TextBlock x:Name="TitleTextBlock"
+                           Grid.Column="1"
+                           VerticalAlignment="Center"
+                           FontSize="13"
+                           TextTrimming="CharacterEllipsis"
+                           Text="--" />
+
+                <Button x:Name="ViewMenuButton"
+                        Grid.Column="2"
+                        MinWidth="40"
+                        Background="Transparent"
+                        BorderThickness="0"
+                        Click="OnViewMenuButtonClick">
+                    <TextBlock x:Name="ViewMenuButtonText" />
+                    <Button.ContextMenu>
+                        <ContextMenu Placement="BottomEdgeAlignedRight">
+                            <MenuItem x:Name="StretchViewMenuItem" ToggleType="CheckBox" Click="OnStretchViewClick" />
+                            <Separator />
+                            <MenuItem x:Name="ViewDirectionLabel" IsEnabled="False" />
+                            <MenuItem x:Name="FitToScreenMenuItem" ToggleType="CheckBox" Click="OnViewDirectionClick" />
+                            <MenuItem x:Name="LeftToRightMenuItem" ToggleType="CheckBox" Click="OnViewDirectionClick" />
+                            <MenuItem x:Name="RightToLeftMenuItem" ToggleType="CheckBox" Click="OnViewDirectionClick" />
+                            <Separator />
+                            <MenuItem x:Name="ImageQualityLabel" IsEnabled="False" />
+                            <MenuItem x:Name="FastQualityMenuItem" ToggleType="CheckBox" Click="OnImageQualityClick" />
+                            <MenuItem x:Name="DefaultQualityMenuItem" ToggleType="CheckBox" Click="OnImageQualityClick" />
+                            <MenuItem x:Name="HighQualityMenuItem" ToggleType="CheckBox" Click="OnImageQualityClick" />
+                            <MenuItem x:Name="NearestInterpolationMenuItem" ToggleType="CheckBox" Click="OnImageQualityClick" />
+                            <MenuItem x:Name="BilinearInterpolationMenuItem" ToggleType="CheckBox" Click="OnImageQualityClick" />
+                            <Separator />
+                            <MenuItem x:Name="HorizontalAlignLabel" IsEnabled="False" />
+                            <MenuItem x:Name="LeftAlignMenuItem" ToggleType="CheckBox" Click="OnHorizontalAlignClick" />
+                            <MenuItem x:Name="CenterAlignMenuItem" ToggleType="CheckBox" Click="OnHorizontalAlignClick" />
+                            <MenuItem x:Name="RightAlignMenuItem" ToggleType="CheckBox" Click="OnHorizontalAlignClick" />
+                            <MenuItem x:Name="MarginLabel" IsEnabled="False" />
+                            <MenuItem StaysOpenOnClick="True" IsEnabled="False">
+                                <MenuItem.Header>
+                                    <NumericUpDown x:Name="MarginNumericUpDown"
+                                                   Width="180"
+                                                   Minimum="0"
+                                                   Maximum="9999"
+                                                   Increment="10"
+                                                   Value="100"
+                                                   FormatString="N0"
+                                                   ValueChanged="OnMarginValueChanged" />
+                                </MenuItem.Header>
+                            </MenuItem>
+                        </ContextMenu>
+                    </Button.ContextMenu>
+                </Button>
+
+                <Button x:Name="MainMenuButton"
+                        Grid.Column="3"
+                        MinWidth="40"
+                        Background="Transparent"
+                        BorderThickness="0"
+                        Click="OnMainMenuButtonClick">
+                    <TextBlock x:Name="MainMenuButtonText" />
+                    <Button.ContextMenu>
+                        <ContextMenu Placement="BottomEdgeAlignedRight">
+                            <MenuItem x:Name="OpenBookMenuItem" Click="OnOpenBookClick" InputGesture="Ctrl+O" />
+                            <MenuItem x:Name="OpenFolderMenuItem" Click="OnOpenFolderClick" InputGesture="Ctrl+Shift+O" />
+                            <MenuItem x:Name="CloseBookMenuItem" Click="OnCloseBookClick" InputGesture="Ctrl+W" />
+                            <Separator />
+                            <MenuItem x:Name="SettingsMenuItem" Click="OnSettingsClick" InputGesture="Ctrl+," />
+                            <MenuItem x:Name="ThemeMenuItem">
+                                <MenuItem x:Name="ThemeDefaultMenuItem" ToggleType="CheckBox" Click="OnThemeMenuClick" />
+                                <MenuItem x:Name="ThemeLightMenuItem" ToggleType="CheckBox" Click="OnThemeMenuClick" />
+                                <MenuItem x:Name="ThemeDarkMenuItem" ToggleType="CheckBox" Click="OnThemeMenuClick" />
+                            </MenuItem>
+                            <Separator />
+                            <MenuItem x:Name="ExitMenuItem" Click="OnExitClick" InputGesture="Alt+F4" />
+                        </ContextMenu>
+                    </Button.ContextMenu>
+                </Button>
+
+                <Button x:Name="FullscreenButton"
+                        Grid.Column="4"
+                        Width="44"
+                        Background="Transparent"
+                        BorderThickness="0"
+                        Click="OnToggleFullscreenClick">
+                    <TextBlock x:Name="FullscreenGlyph" FontFamily="Segoe Fluent Icons, Segoe MDL2 Assets" Text="&#xE740;" />
+                </Button>
+
+                <Button x:Name="MinimizeButton"
+                        Grid.Column="5"
+                        Width="44"
+                        Background="Transparent"
+                        BorderThickness="0"
+                        Click="OnMinimizeClick">
+                    <TextBlock FontFamily="Segoe Fluent Icons, Segoe MDL2 Assets" Text="&#xE921;" />
+                </Button>
+
+                <Button x:Name="MaximizeButton"
+                        Grid.Column="6"
+                        Width="44"
+                        Background="Transparent"
+                        BorderThickness="0"
+                        Click="OnMaximizeRestoreClick">
+                    <TextBlock x:Name="MaximizeGlyph" FontFamily="Segoe Fluent Icons, Segoe MDL2 Assets" Text="&#xE922;" />
+                </Button>
+
+                <Button x:Name="CloseButton"
+                        Grid.Column="7"
+                        Width="44"
+                        Background="Transparent"
+                        BorderThickness="0"
+                        Click="OnCloseClick">
+                    <TextBlock FontFamily="Segoe Fluent Icons, Segoe MDL2 Assets" Text="&#xE8BB;" />
+                </Button>
+            </Grid>
+        </Border>
+
+        <Grid Grid.Row="1">
+            <Image Width="400"
+                   Height="300"
+                   Margin="20"
+                   HorizontalAlignment="Right"
+                   VerticalAlignment="Bottom"
+                   Stretch="Uniform"
+                   Source="avares://DgRead/Assets/logo.png" />
+        </Grid>
+
+        <Border Grid.RowSpan="2" Height="6" VerticalAlignment="Top" Background="Transparent" PointerPressed="OnResizeTopPressed" />
+        <Border Grid.RowSpan="2" Height="6" VerticalAlignment="Bottom" Background="Transparent" PointerPressed="OnResizeBottomPressed" />
+        <Border Grid.RowSpan="2" Width="6" HorizontalAlignment="Left" Background="Transparent" PointerPressed="OnResizeLeftPressed" />
+        <Border Grid.RowSpan="2" Width="6" HorizontalAlignment="Right" Background="Transparent" PointerPressed="OnResizeRightPressed" />
+
+        <Border Grid.RowSpan="2" Width="10" Height="10" HorizontalAlignment="Left" VerticalAlignment="Top" Background="Transparent" PointerPressed="OnResizeTopLeftPressed" />
+        <Border Grid.RowSpan="2" Width="10" Height="10" HorizontalAlignment="Right" VerticalAlignment="Top" Background="Transparent" PointerPressed="OnResizeTopRightPressed" />
+        <Border Grid.RowSpan="2" Width="10" Height="10" HorizontalAlignment="Left" VerticalAlignment="Bottom" Background="Transparent" PointerPressed="OnResizeBottomLeftPressed" />
+        <Border Grid.RowSpan="2" Width="10" Height="10" HorizontalAlignment="Right" VerticalAlignment="Bottom" Background="Transparent" PointerPressed="OnResizeBottomRightPressed" />
+    </Grid>
+</Window>

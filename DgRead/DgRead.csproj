@@ -18,10 +18,11 @@
       <PrivateAssets Condition="'$(Configuration)' != 'Debug'">All</PrivateAssets>
     </PackageReference>
     <PackageReference Include="Microsoft.Data.Sqlite" Version="10.0.5" />
-    <PackageReference Include="MessageBox.Avalonia" Version="0.10.7" />
+    <PackageReference Include="MessageBox.Avalonia" Version="1.0.0" />
   </ItemGroup>
 
   <ItemGroup>
-    <Folder Include="NewFolder\" />
+    <AvaloniaResource Include="Assets\logo.png" />
+    <EmbeddedResource Include="locale-ko.txt" />
   </ItemGroup>
 </Project>

@@ -28,6 +28,7 @@ internal static class Configs
 	private static int sWindowY = -1;
 	private static int sWindowWidth = 600;
 	private static int sWindowHeight = 400;
+	private static WindowTheme sWindowTheme = WindowTheme.Default;
 
 	private static bool sEscToExit = true;
 	private static bool sFileConfirmDelete = true;
@@ -43,6 +44,7 @@ internal static class Configs
 	private static ViewMode sViewMode = ViewMode.Fit;
 	private static ViewAlign sViewAlign = ViewAlign.Center;
 	private static ViewQuality sViewQuality = ViewQuality.Default;
+	private static int sViewMargin = 100;
 
 	private static readonly List<MoveInfo> sMoves = [];
 	private static readonly List<BookmarkInfo> sBookmarks = [];
@@ -64,7 +66,7 @@ internal static class Configs
 	// 설정 초기화
 	public static bool Initialize()
 	{
-		sAppPath = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), "ksh");
+		sAppPath = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "ksh");
 		if (!Directory.Exists(sAppPath))
 			Directory.CreateDirectory(sAppPath);
 		sDataSource = $"Data Source={Path.Combine(sAppPath, "DgRead.conf")}";
@@ -103,15 +105,19 @@ internal static class Configs
 
 		sRunDuration += (long)(DateTime.Now - sLaunched).TotalSeconds;
 
-		using var conn = OpenConnection();
-		using var transaction = conn.BeginTransaction();
-		conn.IntoConfigs("WindowX", sWindowX);
-		conn.IntoConfigs("WindowY", sWindowY);
-		conn.IntoConfigs("WindowWidth", sWindowWidth);
-		conn.IntoConfigs("WindowHeight", sWindowHeight);
-		conn.IntoConfigs("RunCount", sRunCount);
-		conn.IntoConfigs("RunDuration", sRunDuration);
-		transaction.Commit();
+		try
+		{
+			using var conn = OpenConnection();
+			using var transaction = conn.BeginTransaction();
+			conn.IntoConfigs("WindowX", sWindowX);
+			conn.IntoConfigs("WindowY", sWindowY);
+			conn.IntoConfigs("WindowWidth", sWindowWidth);
+			conn.IntoConfigs("WindowHeight", sWindowHeight);
+			conn.IntoConfigs("RunCount", sRunCount);
+			conn.IntoConfigs("RunDuration", sRunDuration);
+			transaction.Commit();
+		}
+		catch { /* 무시 */ }
 	}
 
 	// 모든 캐시 읽기
@@ -126,6 +132,7 @@ internal static class Configs
 		sWindowY = conn.SelectConfigsAsInt("WindowY", sWindowY);
 		sWindowWidth = conn.SelectConfigsAsInt("WindowWidth", sWindowWidth);
 		sWindowHeight = conn.SelectConfigsAsInt("WindowHeight", sWindowHeight);
+		sWindowTheme = conn.SelectConfigsAsWindowTheme("WindowTheme", sWindowTheme);
 
 		sEscToExit = conn.SelectConfigsAsBool("GeneralEscToExit", sEscToExit);
 		sFileConfirmDelete = conn.SelectConfigsAsBool("FileConfirmDelete", sFileConfirmDelete);
@@ -141,6 +148,7 @@ internal static class Configs
 		sViewMode = conn.SelectConfigsAsViewMode("ViewMode");
 		sViewAlign = conn.SelectConfigsAsViewAlign("ViewAlign");
 		sViewQuality = conn.SelectConfigsAsViewQuality("ViewQuality");
+		sViewMargin = conn.SelectConfigsAsInt("ViewMargin", sViewMargin);
 
 		// 이동
 		using (var moveCmd = conn.CreateCommand())
@@ -228,6 +236,9 @@ internal static class Configs
 
 		public ViewQuality SelectConfigsAsViewQuality(string key, ViewQuality defaultValue = ViewQuality.Default) =>
 			conn.SelectConfigs(key) is { } s && Enum.TryParse<ViewQuality>(s, out var vq) ? vq : defaultValue;
+
+		public WindowTheme SelectConfigsAsWindowTheme(string key, WindowTheme defaultValue = WindowTheme.Default) =>
+			conn.SelectConfigs(key) is { } s && Enum.TryParse<WindowTheme>(s, out var wt) ? wt : defaultValue;
 
 		public void IntoConfigs(string key, string value)
 		{
@@ -322,6 +333,17 @@ internal static class Configs
 	{
 		get => sWindowHeight;
 		set => sWindowHeight = value;
+	}
+
+	public static WindowTheme WindowTheme
+	{
+		get => sWindowTheme;
+		set
+		{
+			if (value == sWindowTheme) return;
+			sWindowTheme = value;
+			SetSql("WindowTheme", sWindowTheme.ToString());
+		}
 	}
 
 	public static bool EscToExit
@@ -426,6 +448,17 @@ internal static class Configs
 			if (value == sViewQuality) return;
 			sViewQuality = value;
 			SetSql("ViewQuality", sViewQuality.ToString());
+		}
+	}
+
+	public static int ViewMargin
+	{
+		get => sViewMargin;
+		set
+		{
+			var v = value < 0 ? 0 : value;
+			if (v == sViewMargin) return;
+			SetSql("ViewMargin", sViewMargin = v);
 		}
 	}
 
