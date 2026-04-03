@@ -13,10 +13,17 @@ using Avalonia.VisualTree;
 
 namespace DgRead;
 
+/// <summary>
+/// 책/이미지 뷰어의 메인 읽기 창을 제공합니다.
+/// </summary>
 public partial class ReadWindow : Window
 {
 	private string _openedEntryName = string.Empty;
+	private BookBase? _book;
 
+	/// <summary>
+	/// <see cref="ReadWindow"/> 인스턴스를 초기화합니다.
+	/// </summary>
 	public ReadWindow()
 	{
 		InitializeComponent();
@@ -46,11 +53,11 @@ public partial class ReadWindow : Window
 		UpdateTitleBarState();
 	}
 
+	/// <summary>
+	/// 로캘 문자열을 UI 텍스트에 적용합니다.
+	/// </summary>
 	private void ApplyLocalizedTexts()
 	{
-		ViewMenuButtonText.Text = T(" ⧉ ");
-		MainMenuButtonText.Text = T(" ≡ ");
-
 		StretchViewMenuItem.Header = T("Stretch View");
 		ViewDirectionLabel.Header = T("Viewing Direction");
 		FitToScreenMenuItem.Header = T("Fit to Screen");
@@ -86,6 +93,9 @@ public partial class ReadWindow : Window
 		ToolTip.SetTip(CloseButton, T("Close"));
 	}
 
+	/// <summary>
+	/// 메뉴의 기본 체크 상태를 적용합니다.
+	/// </summary>
 	private void ApplyViewMenuDefaults()
 	{
 		FitToScreenMenuItem.IsChecked = true;
@@ -96,6 +106,9 @@ public partial class ReadWindow : Window
 		UpdateThemeMenuChecks(WindowTheme.Default);
 	}
 
+	/// <summary>
+	/// 설정값을 메뉴 상태에 반영합니다.
+	/// </summary>
 	private void ApplyConfigToViewMenu()
 	{
 		StretchViewMenuItem.IsChecked = Configs.ViewZoom;
@@ -127,6 +140,9 @@ public partial class ReadWindow : Window
 		UpdateThemeMenuChecks(Configs.WindowTheme);
 	}
 
+	/// <summary>
+	/// 저장된 테마 설정을 애플리케이션에 적용합니다.
+	/// </summary>
 	private static void ApplyWindowTheme()
 	{
 		if (Application.Current == null)
@@ -140,6 +156,9 @@ public partial class ReadWindow : Window
 		};
 	}
 
+	/// <summary>
+	/// 저장된 창 크기/위치를 적용합니다.
+	/// </summary>
 	private void ApplySavedWindowBounds()
 	{
 		const int savedWindowMinWidth = 550;
@@ -156,29 +175,21 @@ public partial class ReadWindow : Window
 			Position = new PixelPoint(Configs.WindowX, Configs.WindowY);
 	}
 
+	/// <summary>
+	/// 윈도우 속성 변경 이벤트를 처리합니다.
+	/// </summary>
 	private void OnWindowPropertyChanged(object? sender, AvaloniaPropertyChangedEventArgs e)
 	{
 		if (e.Property == WindowStateProperty)
 			UpdateTitleBarState();
 	}
 
+	/// <summary>
+	/// 키 입력을 명령 흐름에 맞춰 처리합니다.
+	/// </summary>
 	private void OnReadWindowKeyDown(object? sender, KeyEventArgs e)
 	{
-		if (e.KeyModifiers == KeyModifiers.Alt && e.Key == Key.Enter)
-		{
-			ToggleFullscreen();
-			e.Handled = true;
-			return;
-		}
-
-		if (e.Key == Key.F)
-		{
-			ToggleFullscreen();
-			e.Handled = true;
-			return;
-		}
-
-		if (e.Key == Key.Escape && WindowState == WindowState.FullScreen)
+		if (e is { KeyModifiers: KeyModifiers.Alt, Key: Key.Enter })
 		{
 			ToggleFullscreen();
 			e.Handled = true;
@@ -192,54 +203,232 @@ public partial class ReadWindow : Window
 			return;
 		}
 
-		if (e.KeyModifiers.HasFlag(KeyModifiers.Control) && e.Key == Key.W)
+		var handled = true;
+
+		// ReSharper disable once SwitchStatementHandlesSomeKnownEnumValuesWithDefault
+		switch (e.Key)
 		{
-			CloseBook();
-			e.Handled = true;
+			// 끝
+			case Key.Escape:
+				if (WindowState == WindowState.FullScreen)
+					ToggleFullscreen();
+				else if (Configs.EscToExit)
+					Close();
+				else
+					handled = false;
+				break;
+
+			case Key.W:
+				if (e.KeyModifiers.HasFlag(KeyModifiers.Control))
+					CloseBook();
+				else
+					handled = false;
+				break;
+
+			// 페이지
+			case Key.Up:
+			case Key.OemComma:
+				PageControl(BookControl.SeekMinusOne);
+				break;
+
+			case Key.Down:
+			case Key.OemPeriod:
+			case Key.Oem2:
+				PageControl(BookControl.SeekPlusOne);
+				break;
+
+			case Key.Left:
+				PageControl(e.KeyModifiers.HasFlag(KeyModifiers.Shift) ? BookControl.SeekMinusOne : BookControl.Previous);
+				break;
+
+			case Key.Right:
+			case Key.NumPad0:
+			case Key.Space:
+				PageControl(e.KeyModifiers.HasFlag(KeyModifiers.Shift) ? BookControl.SeekPlusOne : BookControl.Next);
+				break;
+
+			case Key.Home:
+				PageControl(BookControl.First);
+				break;
+
+			case Key.End:
+				PageControl(BookControl.Last);
+				break;
+
+			case Key.PageUp:
+				if (e.KeyModifiers.HasFlag(KeyModifiers.Control))
+					OpenPrevBook();
+				else
+					PageControl(BookControl.SeekPrevious10);
+				break;
+
+			case Key.PageDown:
+			case Key.Back:
+				if (e.Key == Key.PageDown && e.KeyModifiers.HasFlag(KeyModifiers.Control))
+					OpenNextBook();
+				else
+					PageControl(BookControl.SeekNext10);
+				break;
+
+			case Key.Enter:
+				PageControl(BookControl.Select);
+				break;
+
+			// 보기
+			case Key.Oem3:
+				UpdateViewMode(ViewMode.Fit);
+				break;
+
+			case Key.D1:
+				UpdateViewMode(ViewMode.LeftToRight);
+				break;
+
+			case Key.D2:
+				UpdateViewMode(ViewMode.RightToLeft);
+				break;
+
+			case Key.Tab:
+				if (HasOpenedBook())
+				{
+					switch (Configs.ViewMode)
+					{
+						case ViewMode.LeftToRight:
+							UpdateViewMode(ViewMode.RightToLeft);
+							break;
+						case ViewMode.RightToLeft:
+							UpdateViewMode(ViewMode.LeftToRight);
+							break;
+						default:
+							handled = false;
+							break;
+					}
+				}
+				else
+				{
+					handled = false;
+				}
+				break;
+
+			// 파일이나 디렉토리
+			case Key.BrowserBack:
+			case Key.OemOpenBrackets:
+				OpenPrevBook();
+				break;
+
+			case Key.BrowserForward:
+			case Key.OemCloseBrackets:
+				OpenNextBook();
+				break;
+
+			case Key.Add:
+			case Key.OemPlus:
+			case Key.Insert:
+				MoveBook();
+				break;
+
+			case Key.OemQuotes:
+				if (e.KeyModifiers.HasFlag(KeyModifiers.Control))
+					SaveRememberBook();
+				else
+					handled = false;
+				break;
+
+			case Key.OemSemicolon:
+				if (e.KeyModifiers.HasFlag(KeyModifiers.Control))
+					OpenRememberBook();
+				else
+					handled = false;
+				break;
+
+			// 기능
+			case Key.F:
+				if (!e.KeyModifiers.HasFlag(KeyModifiers.Alt))
+					ToggleFullscreen();
+				else
+					handled = false;
+				break;
+
+			case Key.F11:
+#if DEBUG
+				Notify("알림 메시지 테스트이와요~");
+#else
+				handled = false;
+#endif
+				break;
+
+			default:
+#if DEBUG
+				Debug.WriteLine($"키코드: {e.Key}, Modifiers: {e.KeyModifiers}");
+#endif
+				handled = false;
+				break;
 		}
+
+		e.Handled = handled;
 	}
 
+	/// <summary>
+	/// 타이틀 바에서 마우스 누름 이벤트를 처리합니다.
+	/// </summary>
 	private void OnTitleBarPointerPressed(object? sender, PointerPressedEventArgs e)
 	{
 		if (e.GetCurrentPoint(this).Properties.IsLeftButtonPressed && !HasInteractiveAncestor(e.Source))
 			BeginMoveDrag(e);
 	}
 
+	/// <summary>
+	/// 타이틀 바 더블 클릭 이벤트를 처리합니다.
+	/// </summary>
 	private void OnTitleBarDoubleTapped(object? sender, TappedEventArgs e)
 	{
 		if (!HasInteractiveAncestor(e.Source) && WindowState != WindowState.FullScreen)
 			ToggleMaximizeRestore();
 	}
 
-	private void OnResizeTopPressed(object? sender, PointerPressedEventArgs e) =>
-		BeginResizeFromPointer(e, WindowEdge.North);
-	private void OnResizeBottomPressed(object? sender, PointerPressedEventArgs e) =>
-		BeginResizeFromPointer(e, WindowEdge.South);
-	private void OnResizeLeftPressed(object? sender, PointerPressedEventArgs e) =>
-		BeginResizeFromPointer(e, WindowEdge.West);
-	private void OnResizeRightPressed(object? sender, PointerPressedEventArgs e) =>
-		BeginResizeFromPointer(e, WindowEdge.East);
-	private void OnResizeTopLeftPressed(object? sender, PointerPressedEventArgs e) =>
-		BeginResizeFromPointer(e, WindowEdge.NorthWest);
-	private void OnResizeTopRightPressed(object? sender, PointerPressedEventArgs e) =>
-		BeginResizeFromPointer(e, WindowEdge.NorthEast);
-	private void OnResizeBottomLeftPressed(object? sender, PointerPressedEventArgs e) =>
-		BeginResizeFromPointer(e, WindowEdge.SouthWest);
-	private void OnResizeBottomRightPressed(object? sender, PointerPressedEventArgs e) =>
-		BeginResizeFromPointer(e, WindowEdge.SouthEast);
+	/// <summary>상단 리사이즈 드래그를 시작합니다.</summary>
+	private void OnResizeTopPressed(object? sender, PointerPressedEventArgs e) => BeginResizeFromPointer(e, WindowEdge.North);
+	/// <summary>하단 리사이즈 드래그를 시작합니다.</summary>
+	private void OnResizeBottomPressed(object? sender, PointerPressedEventArgs e) => BeginResizeFromPointer(e, WindowEdge.South);
+	/// <summary>좌측 리사이즈 드래그를 시작합니다.</summary>
+	private void OnResizeLeftPressed(object? sender, PointerPressedEventArgs e) => BeginResizeFromPointer(e, WindowEdge.West);
+	/// <summary>우측 리사이즈 드래그를 시작합니다.</summary>
+	private void OnResizeRightPressed(object? sender, PointerPressedEventArgs e) => BeginResizeFromPointer(e, WindowEdge.East);
+	/// <summary>좌상단 리사이즈 드래그를 시작합니다.</summary>
+	private void OnResizeTopLeftPressed(object? sender, PointerPressedEventArgs e) => BeginResizeFromPointer(e, WindowEdge.NorthWest);
+	/// <summary>우상단 리사이즈 드래그를 시작합니다.</summary>
+	private void OnResizeTopRightPressed(object? sender, PointerPressedEventArgs e) => BeginResizeFromPointer(e, WindowEdge.NorthEast);
+	/// <summary>좌하단 리사이즈 드래그를 시작합니다.</summary>
+	private void OnResizeBottomLeftPressed(object? sender, PointerPressedEventArgs e) => BeginResizeFromPointer(e, WindowEdge.SouthWest);
+	/// <summary>우하단 리사이즈 드래그를 시작합니다.</summary>
+	private void OnResizeBottomRightPressed(object? sender, PointerPressedEventArgs e) => BeginResizeFromPointer(e, WindowEdge.SouthEast);
 
+	/// <summary>
+	/// 최소화 버튼 클릭을 처리합니다.
+	/// </summary>
 	private void OnMinimizeClick(object? sender, RoutedEventArgs e) =>
 		WindowState = WindowState.Minimized;
 
+	/// <summary>
+	/// 최대화/복원 버튼 클릭을 처리합니다.
+	/// </summary>
 	private void OnMaximizeRestoreClick(object? sender, RoutedEventArgs e) =>
 		ToggleMaximizeRestore();
 
+	/// <summary>
+	/// 닫기 버튼 클릭을 처리합니다.
+	/// </summary>
 	private void OnCloseClick(object? sender, RoutedEventArgs e) =>
 		Close();
 
+	/// <summary>
+	/// 전체화면 버튼 클릭을 처리합니다.
+	/// </summary>
 	private void OnToggleFullscreenClick(object? sender, RoutedEventArgs e) =>
 		ToggleFullscreen();
 
+	/// <summary>
+	/// 창 닫힘 직전에 창 상태를 저장합니다.
+	/// </summary>
 	private void OnClosing(object? sender, WindowClosingEventArgs e)
 	{
 		if (Position.X is >= int.MinValue / 2 and <= int.MaxValue / 2)
@@ -259,18 +448,28 @@ public partial class ReadWindow : Window
 		}
 	}
 
+	/// <summary>
+	/// 창이 닫힌 뒤 리소스를 정리합니다.
+	/// </summary>
 	private void OnClosed(object? sender, EventArgs e)
 	{
 		try
 		{
+			_book?.Dispose();
+			_book = null;
 			Configs.Close();
 		}
-		catch { /* 무시 */ }
+		catch
+		{
+			// 설정 저장 실패는 앱 종료 흐름을 막지 않습니다.
+		}
 	}
 
+	/// <summary>
+	/// 현재 파일 이름 기반으로 타이틀을 갱신합니다.
+	/// </summary>
 	private void UpdateWindowTitle()
 	{
-
 		var appTitle = T("DgRead");
 		var noBook = T("[No book opened]");
 		var title = string.IsNullOrWhiteSpace(_openedEntryName)
@@ -280,6 +479,9 @@ public partial class ReadWindow : Window
 		Title = title;
 	}
 
+	/// <summary>
+	/// 창 상태에 따라 타이틀바 표시 및 버튼 아이콘을 갱신합니다.
+	/// </summary>
 	private void UpdateTitleBarState()
 	{
 		var isFullscreen = WindowState == WindowState.FullScreen;
@@ -288,6 +490,9 @@ public partial class ReadWindow : Window
 		MaximizeGlyph.Text = WindowState == WindowState.Maximized ? "\uE923" : "\uE922";
 	}
 
+	/// <summary>
+	/// 입력 소스가 메뉴/버튼 같은 상호작용 컨트롤인지 확인합니다.
+	/// </summary>
 	private static bool HasInteractiveAncestor(object? source)
 	{
 		return
@@ -295,6 +500,9 @@ public partial class ReadWindow : Window
 			visual.GetSelfAndVisualAncestors().Any(v => v is Button or MenuItem or ComboBox or NumericUpDown);
 	}
 
+	/// <summary>
+	/// 가장자리 리사이즈 드래그를 시작합니다.
+	/// </summary>
 	private void BeginResizeFromPointer(PointerPressedEventArgs e, WindowEdge edge)
 	{
 		if (WindowState != WindowState.Normal)
@@ -306,6 +514,9 @@ public partial class ReadWindow : Window
 			BeginResizeDrag(edge, e);
 	}
 
+	/// <summary>
+	/// 창 최대화/복원을 전환합니다.
+	/// </summary>
 	private void ToggleMaximizeRestore()
 	{
 		WindowState = WindowState switch
@@ -316,6 +527,9 @@ public partial class ReadWindow : Window
 		};
 	}
 
+	/// <summary>
+	/// 창 전체화면을 전환합니다.
+	/// </summary>
 	private void ToggleFullscreen()
 	{
 		WindowState = WindowState switch
@@ -325,23 +539,155 @@ public partial class ReadWindow : Window
 		};
 	}
 
+	/// <summary>
+	/// 페이지 제어 명령을 처리합니다.
+	/// </summary>
+	/// <remarks>
+	/// 실제 렌더러/페이지 모델 연결 시 본문을 구현합니다.
+	/// </remarks>
+	private void PageControl(BookControl control)
+	{
+		if (_book == null)
+			return;
+
+		var moved = control switch
+		{
+			BookControl.Previous => _book.MovePrev(),
+			BookControl.Next => _book.MoveNext(),
+			BookControl.First => _book.MovePage(0),
+			BookControl.Last => _book.MovePage(_book.TotalPage - 1),
+			BookControl.SeekPrevious10 => _book.MovePage(_book.CurrentPage - 10),
+			BookControl.SeekNext10 => _book.MovePage(_book.CurrentPage + 10),
+			BookControl.SeekMinusOne => _book.MovePage(_book.CurrentPage - 1),
+			BookControl.SeekPlusOne => _book.MovePage(_book.CurrentPage + 1),
+			BookControl.Select => _book.MovePage(_book.CurrentPage),
+			_ => false
+		};
+
+		if (!moved && control != BookControl.Select)
+			return;
+
+		_book.PrepareImages();
+	}
+
+	/// <summary>
+	/// 이전 책 열기 흐름을 시작합니다.
+	/// </summary>
+	private void OpenPrevBook()
+	{
+		if (_book == null)
+			return;
+
+		var next = _book.FindNextFileAny(BookDirection.Previous);
+		if (!string.IsNullOrWhiteSpace(next))
+			OpenBookByPath(next);
+	}
+
+	/// <summary>
+	/// 다음 책 열기 흐름을 시작합니다.
+	/// </summary>
+	private void OpenNextBook()
+	{
+		if (_book == null)
+			return;
+
+		var next = _book.FindNextFileAny(BookDirection.Next);
+		if (!string.IsNullOrWhiteSpace(next))
+			OpenBookByPath(next);
+	}
+
+	/// <summary>
+	/// 현재 책을 이동하는 흐름을 시작합니다.
+	/// </summary>
+	private void MoveBook()
+	{
+		Debug.WriteLine("MoveBook");
+	}
+
+	/// <summary>
+	/// 현재 책을 기억 목록에 저장합니다.
+	/// </summary>
+	private void SaveRememberBook()
+	{
+		if (_book == null)
+			return;
+
+		Configs.LastFileName = _book.FullName;
+	}
+
+	/// <summary>
+	/// 기억한 책을 엽니다.
+	/// </summary>
+	private void OpenRememberBook()
+	{
+		var path = Configs.LastFileName;
+		if (!string.IsNullOrWhiteSpace(path))
+			OpenBookByPath(path);
+	}
+
+	/// <summary>
+	/// 보기 모드를 변경하고 UI/설정을 동기화합니다.
+	/// </summary>
+	private void UpdateViewMode(ViewMode mode)
+	{
+		Configs.ViewMode = mode;
+		if (_book != null)
+		{
+			_book.ViewMode = mode;
+			_book.PrepareImages();
+		}
+
+		SetSingleChecked(mode switch
+		{
+			ViewMode.LeftToRight => LeftToRightMenuItem,
+			ViewMode.RightToLeft => RightToLeftMenuItem,
+			_ => FitToScreenMenuItem
+		}, FitToScreenMenuItem, LeftToRightMenuItem, RightToLeftMenuItem);
+	}
+
+	/// <summary>
+	/// 현재 열려 있는 책이 있는지 확인합니다.
+	/// </summary>
+	private bool HasOpenedBook() =>
+	   _book != null;
+
+	/// <summary>
+	/// 디버그 알림 메시지를 출력합니다.
+	/// </summary>
+	private static void Notify(string message)
+	{
+		Debug.WriteLine(message);
+	}
+
+	/// <summary>
+	/// 보기 메뉴 버튼 클릭을 처리합니다.
+	/// </summary>
 	private void OnViewMenuButtonClick(object? sender, RoutedEventArgs e)
 	{
 		if (sender is Button button)
 			button.ContextMenu?.Open(button);
 	}
 
+	/// <summary>
+	/// 메인 메뉴 버튼 클릭을 처리합니다.
+	/// </summary>
 	private void OnMainMenuButtonClick(object? sender, RoutedEventArgs e)
 	{
 		if (sender is Button button)
 			button.ContextMenu?.Open(button);
 	}
 
+	/// <summary>
+	/// 늘려 보기 체크 변경을 처리합니다.
+	/// </summary>
 	private void OnStretchViewClick(object? sender, RoutedEventArgs e)
 	{
 		Configs.ViewZoom = StretchViewMenuItem.IsChecked;
 	}
 
+	/// <summary>
+	/// 보기 방향 메뉴 클릭을 처리합니다.
+	/// </summary>
 	private void OnViewDirectionClick(object? sender, RoutedEventArgs e)
 	{
 		if (sender is not MenuItem selected)
@@ -355,6 +701,9 @@ public partial class ReadWindow : Window
 				: ViewMode.Fit;
 	}
 
+	/// <summary>
+	/// 이미지 품질 메뉴 클릭을 처리합니다.
+	/// </summary>
 	private void OnImageQualityClick(object? sender, RoutedEventArgs e)
 	{
 		if (sender is not MenuItem selected)
@@ -372,6 +721,9 @@ public partial class ReadWindow : Window
 						: ViewQuality.Default;
 	}
 
+	/// <summary>
+	/// 가로 정렬 메뉴 클릭을 처리합니다.
+	/// </summary>
 	private void OnHorizontalAlignClick(object? sender, RoutedEventArgs e)
 	{
 		if (sender is not MenuItem selected)
@@ -385,12 +737,18 @@ public partial class ReadWindow : Window
 				: ViewAlign.Center;
 	}
 
+	/// <summary>
+	/// 여백 값 변경을 처리합니다.
+	/// </summary>
 	private void OnMarginValueChanged(object? sender, NumericUpDownValueChangedEventArgs e)
 	{
 		var margin = (int)Math.Round(Convert.ToDouble(e.NewValue));
 		Configs.ViewMargin = Math.Clamp(margin, 0, 9999);
 	}
 
+	/// <summary>
+	/// 테마 메뉴 클릭을 처리합니다.
+	/// </summary>
 	private void OnThemeMenuClick(object? sender, RoutedEventArgs e)
 	{
 		if (sender is not MenuItem selected)
@@ -407,6 +765,9 @@ public partial class ReadWindow : Window
 		ApplyWindowTheme();
 	}
 
+	/// <summary>
+	/// 책/파일 열기 메뉴 클릭을 처리합니다.
+	/// </summary>
 	private async void OnOpenBookClick(object? sender, RoutedEventArgs e)
 	{
 		try
@@ -419,6 +780,9 @@ public partial class ReadWindow : Window
 		}
 	}
 
+	/// <summary>
+	/// 폴더 열기 메뉴 클릭을 처리합니다.
+	/// </summary>
 	private async void OnOpenFolderClick(object? sender, RoutedEventArgs e)
 	{
 		try
@@ -431,22 +795,37 @@ public partial class ReadWindow : Window
 		}
 	}
 
+	/// <summary>
+	/// 닫기 메뉴 클릭을 처리합니다.
+	/// </summary>
 	private void OnCloseBookClick(object? sender, RoutedEventArgs e) =>
 		CloseBook();
 
+	/// <summary>
+	/// 설정 메뉴 클릭을 처리합니다.
+	/// </summary>
 	private void OnSettingsClick(object? sender, RoutedEventArgs e)
 	{
 	}
 
+	/// <summary>
+	/// 종료 메뉴 클릭을 처리합니다.
+	/// </summary>
 	private void OnExitClick(object? sender, RoutedEventArgs e) =>
 		Close();
 
+	/// <summary>
+	/// 메뉴 그룹에서 단일 체크를 적용합니다.
+	/// </summary>
 	private static void SetSingleChecked(MenuItem selected, params MenuItem[] group)
 	{
 		foreach (var item in group)
 			item.IsChecked = item == selected;
 	}
 
+	/// <summary>
+	/// 현재 테마 선택 상태를 메뉴 체크에 반영합니다.
+	/// </summary>
 	private void UpdateThemeMenuChecks(WindowTheme theme)
 	{
 		SetSingleChecked(theme switch
@@ -457,6 +836,9 @@ public partial class ReadWindow : Window
 		}, ThemeDefaultMenuItem, ThemeLightMenuItem, ThemeDarkMenuItem);
 	}
 
+	/// <summary>
+	/// 키 처리용 책/파일 열기를 예외 안전하게 수행합니다.
+	/// </summary>
 	private async Task OpenBookFileSafeAsync()
 	{
 		try
@@ -469,6 +851,9 @@ public partial class ReadWindow : Window
 		}
 	}
 
+	/// <summary>
+	/// 키 처리용 폴더 열기를 예외 안전하게 수행합니다.
+	/// </summary>
 	private async Task OpenFolderSafeAsync()
 	{
 		try
@@ -481,6 +866,9 @@ public partial class ReadWindow : Window
 		}
 	}
 
+	/// <summary>
+	/// 파일 선택기를 통해 책/파일을 엽니다.
+	/// </summary>
 	private async Task OpenBookFileAsync()
 	{
 		if (!StorageProvider.CanOpen)
@@ -495,7 +883,6 @@ public partial class ReadWindow : Window
 		if (files.Count == 0)
 			return;
 
-		_openedEntryName = files[0].Name;
 		var filePath = files[0].TryGetLocalPath();
 		if (!string.IsNullOrWhiteSpace(filePath))
 		{
@@ -503,10 +890,18 @@ public partial class ReadWindow : Window
 			if (!string.IsNullOrWhiteSpace(dir))
 				Configs.LastFolder = dir;
 			Configs.LastFileName = filePath;
+			OpenBookByPath(filePath);
 		}
-		UpdateWindowTitle();
+		else
+		{
+			_openedEntryName = files[0].Name;
+			UpdateWindowTitle();
+		}
 	}
 
+	/// <summary>
+	/// 폴더 선택기를 통해 폴더를 엽니다.
+	/// </summary>
 	private async Task OpenFolderAsync()
 	{
 		if (!StorageProvider.CanOpen)
@@ -521,16 +916,56 @@ public partial class ReadWindow : Window
 		if (folders.Count == 0)
 			return;
 
-		_openedEntryName = folders[0].Name;
 		var folderPath = folders[0].TryGetLocalPath();
 		if (!string.IsNullOrWhiteSpace(folderPath))
+		{
 			Configs.LastFolder = folderPath;
+			OpenBookByPath(folderPath);
+		}
+		else
+		{
+			_openedEntryName = folders[0].Name;
+			UpdateWindowTitle();
+		}
+	}
+
+	/// <summary>
+	/// 현재 열린 책 상태를 해제합니다.
+	/// </summary>
+	private void CloseBook()
+	{
+		_book?.Dispose();
+		_book = null;
+		_openedEntryName = string.Empty;
 		UpdateWindowTitle();
 	}
 
-	private void CloseBook()
+	/// <summary>
+	/// 경로로부터 책을 열고 초기 이미지를 준비합니다.
+	/// </summary>
+	private void OpenBookByPath(string path)
 	{
-		_openedEntryName = string.Empty;
-		UpdateWindowTitle();
+		try
+		{
+			var book = BookFactory.Open(path);
+			if (book == null)
+			{
+				SuppUi.Ok(this, T("Unsupported book format"), "Error");
+				return;
+			}
+
+			_book?.Dispose();
+			_book = book;
+			_book.ViewMode = Configs.ViewMode;
+			_book.MovePage(Configs.GetHistory(path));
+			_book.PrepareImages();
+
+			_openedEntryName = _book.FileName;
+			UpdateWindowTitle();
+		}
+		catch (Exception ex)
+		{
+			SuppUi.Ok(this, $"{T("Failed to open book/file")}{Environment.NewLine}{ex.Message}", "Error");
+		}
 	}
 }

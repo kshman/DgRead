@@ -12,6 +12,13 @@
         ExtendClientAreaTitleBarHeightHint="-1"
         SystemDecorations="Full"
         KeyDown="OnReadWindowKeyDown">
+    <Window.Resources>
+        <Geometry x:Key="MainMenuIconGeometry">M3,6H21V8H3V6M3,11H21V13H3V11M3,16H21V18H3V16Z</Geometry>
+        <Geometry x:Key="ViewMenuIconGeometry">M4,2H18A2,2 0 0,1 20,4V18A2,2 0 0,1 18,20H4A2,2 0 0,1 2,18V4A2,2 0 0,1 4,2M4,4V18H18V4H4M8,6H16V8H8V6M8,10H16V16H8V10Z</Geometry>
+        <Geometry x:Key="BookLeftToRightIconGeometry">M2,18H14A2,2 0 0,0 16,16V4A2,2 0 0,0 14,2H2A2,2 0 0,0 0,4V16A2,2 0 0,0 2,18M2,4H14V16H2V4M18,9L21,12L18,15V13H15V11H18V9M4,6H12V8H4V6M4,10H10V12H4V10M4,14H8V16H4V14Z</Geometry>
+        <Geometry x:Key="BookRightToLeftIconGeometry">M22,18H10A2,2 0 0,1 8,16V4A2,2 0 0,1 10,2H22A2,2 0 0,1 24,4V16A2,2 0 0,1 22,18M22,4H10V16H22V4M6,9L3,12L6,15V13H9V11H6V9M12,6H20V8H12V6M14,10H20V12H14V10M16,14H20V16H16V14Z</Geometry>
+    </Window.Resources>
+
     <Grid RowDefinitions="Auto,*">
         <Border x:Name="TitleBarHost"
                 Grid.Row="0"
@@ -38,7 +45,10 @@
                         Background="Transparent"
                         BorderThickness="0"
                         Click="OnViewMenuButtonClick">
-                    <TextBlock x:Name="ViewMenuButtonText" />
+                    <PathIcon Width="16"
+                              Height="16"
+                              Foreground="{DynamicResource SystemControlForegroundBaseHighBrush}"
+                              Data="{StaticResource ViewMenuIconGeometry}" />
                     <Button.ContextMenu>
                         <ContextMenu Placement="BottomEdgeAlignedRight">
                             <MenuItem x:Name="StretchViewMenuItem" ToggleType="CheckBox" Click="OnStretchViewClick" />
@@ -82,7 +92,10 @@
                         Background="Transparent"
                         BorderThickness="0"
                         Click="OnMainMenuButtonClick">
-                    <TextBlock x:Name="MainMenuButtonText" />
+                    <PathIcon Width="16"
+                              Height="16"
+                              Foreground="{DynamicResource SystemControlForegroundBaseHighBrush}"
+                              Data="{StaticResource MainMenuIconGeometry}" />
                     <Button.ContextMenu>
                         <ContextMenu Placement="BottomEdgeAlignedRight">
                             <MenuItem x:Name="OpenBookMenuItem" Click="OnOpenBookClick" InputGesture="Ctrl+O" />

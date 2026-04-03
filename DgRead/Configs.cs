@@ -386,7 +386,7 @@ internal static class Configs
 		}
 	}
 
-	public static long ActualCacheMaxSize => sCacheMaxSize * 1024L * 1024L;
+	public static long CacheActualMaxSize => sCacheMaxSize * 1024L * 1024L;
 
 	public static bool MouseDoubleFullScreen
 	{
