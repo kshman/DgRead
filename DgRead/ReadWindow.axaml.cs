@@ -230,7 +230,7 @@ public partial class ReadWindow : Window
 	/// <summary>
 	/// 드래그 오버 시 파일 드롭 가능 상태를 설정합니다.
 	/// </summary>
-	private void OnWindowDragOver(object? sender, DragEventArgs e)
+	private static void OnWindowDragOver(object? sender, DragEventArgs e)
 	{
 		e.DragEffects = e.DataTransfer.Contains(DataFormat.File) ? DragDropEffects.Copy : DragDropEffects.None;
 	}

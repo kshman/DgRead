@@ -2,11 +2,15 @@ using System;
 using System.Collections.ObjectModel;
 using System.Diagnostics.CodeAnalysis;
 using System.IO;
+using System.Linq;
 using System.Threading.Tasks;
+using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Input;
 using Avalonia.Interactivity;
 using Avalonia.Platform.Storage;
+using Avalonia.Threading;
+using Avalonia.VisualTree;
 
 namespace DgRead;
 
@@ -15,6 +19,8 @@ public sealed class MoveDialogItem
 	public int No { get; init; }
 	public string Alias { get; init; } = string.Empty;
 	public string Folder { get; init; } = string.Empty;
+	public bool Enabled { get; init; }
+	public string FolderDisplay => Enabled ? Folder : "••••••••";
 }
 
 public partial class MoveDialog : Window
@@ -26,6 +32,10 @@ public partial class MoveDialog : Window
 	private bool _modified;
 	private string _fileName = string.Empty;
 	private string? _resultPath;
+	private Point? _dragStartPoint;
+	private MoveDialogItem? _dragStartItem;
+
+	private const string MoveDragPrefix = "dgread-move-folder:";
 
 	public MoveDialog()
 	{
@@ -36,6 +46,7 @@ public partial class MoveDialog : Window
 		MoveListBox.SelectionChanged += OnMoveSelectionChanged;
 
 		AddHandler(KeyDownEvent, OnDialogKeyDown, RoutingStrategies.Tunnel, true);
+		Opened += OnDialogOpened;
 		Closed += OnDialogClosed;
 	}
 
@@ -50,11 +61,22 @@ public partial class MoveDialog : Window
 		AddLocationButton.Content = T("Add location");
 		AliasLabelTextBlock.Text = T("Alias");
 		ApplyAliasButton.Content = T("Apply alias");
-		MoveUpButton.Content = T("Move up");
-		MoveDownButton.Content = T("Move down");
-		DeleteLocationButton.Content = T("Delete location");
+		ToolTip.SetTip(MoveUpButton, T("Move up"));
+		ToolTip.SetTip(MoveDownButton, T("Move down"));
+		ToolTip.SetTip(DeleteLocationButton, T("Delete location"));
 		OkButton.Content = T("OK");
 		CancelButton.Content = T("Cancel");
+	}
+
+	private void OnDialogOpened(object? sender, EventArgs e)
+	{
+		if (_items.Count == 0)
+			return;
+
+		if (MoveListBox.SelectedIndex < 0)
+			EnsureIndex(Math.Clamp(sLastSelected, 0, _items.Count - 1));
+
+		FocusMoveListLater();
 	}
 
 	public async Task<string?> ShowForMoveAsync(Window owner, string fileName)
@@ -81,6 +103,7 @@ public partial class MoveDialog : Window
 				No = move.No,
 				Alias = move.Alias,
 				Folder = move.Folder,
+				Enabled = move.Enabled,
 			});
 		}
 
@@ -95,9 +118,11 @@ public partial class MoveDialog : Window
 		else
 		{
 			MoveListBox.SelectedIndex = -1;
+			DestTextBox.Text = string.Empty;
 			AliasTextBox.Text = string.Empty;
 		}
 
+		UpdateSelectionUiState();
 		_refreshing = false;
 	}
 
@@ -126,8 +151,9 @@ public partial class MoveDialog : Window
 		MoveListBox.SelectedIndex = index;
 		MoveListBox.ScrollIntoView(_items[index]);
 		MoveListBox.Focus();
-		DestTextBox.Text = _items[index].Folder;
+		DestTextBox.Text = _items[index].FolderDisplay;
 		AliasTextBox.Text = _items[index].Alias;
+		UpdateSelectionUiState();
 		if (!_refreshing)
 			sLastSelected = index;
 	}
@@ -138,7 +164,10 @@ public partial class MoveDialog : Window
 			return;
 
 		DestTextBox.Text = selected.Folder;
+		if (!selected.Enabled)
+			DestTextBox.Text = selected.FolderDisplay;
 		AliasTextBox.Text = selected.Alias;
+		UpdateSelectionUiState();
 		if (!_refreshing)
 			sLastSelected = index;
 	}
@@ -263,6 +292,8 @@ public partial class MoveDialog : Window
 	{
 		if (!TryGetSelected(out var selectedIndex, out var selectedItem))
 			return;
+		if (!selectedItem.Enabled)
+			return;
 
 		var alias = AliasTextBox.Text?.Trim() ?? string.Empty;
 		if (string.IsNullOrWhiteSpace(alias))
@@ -290,13 +321,91 @@ public partial class MoveDialog : Window
 		return true;
 	}
 
-	private async void OnMoveListDoubleTapped(object? sender, RoutedEventArgs e)
+	private async void OnMoveListDoubleTapped(object? sender, TappedEventArgs e)
 	{
 		try
 		{
 			await AcceptAndCloseSafeAsync();
 		}
 		catch { /* 무시 */ }
+	}
+
+	private void OnMoveListPointerPressed(object? sender, PointerPressedEventArgs e)
+	{
+		_dragStartPoint = e.GetPosition(MoveListBox);
+		_dragStartItem = TryGetItemFromEventSource(e.Source, out _, out var item) ? item : null;
+	}
+
+	private async void OnMoveListPointerMoved(object? sender, PointerEventArgs e)
+	{
+		try
+		{
+			if (_dragStartPoint is null || _dragStartItem is null)
+				return;
+
+			if (!e.GetCurrentPoint(MoveListBox).Properties.IsLeftButtonPressed)
+			{
+				_dragStartPoint = null;
+				_dragStartItem = null;
+				return;
+			}
+
+			var now = e.GetPosition(MoveListBox);
+			if (Math.Abs(now.X - _dragStartPoint.Value.X) < 4 && Math.Abs(now.Y - _dragStartPoint.Value.Y) < 4)
+				return;
+
+			var data = new DataTransfer();
+			data.Add(DataTransferItem.Create(DataFormat.Text, $"{MoveDragPrefix}{_dragStartItem.Folder}"));
+			await DragDrop.DoDragDropAsync(e, data, DragDropEffects.Move);
+		}
+		catch { /* 무시 */ }
+		finally
+		{
+			_dragStartPoint = null;
+			_dragStartItem = null;
+		}
+	}
+
+	private void OnMoveListDragOver(object? sender, DragEventArgs e)
+	{
+		if (!TryGetDraggedFolder(e.DataTransfer, out _) || !TryGetItemFromEventSource(e.Source, out _, out _))
+		{
+			e.DragEffects = DragDropEffects.None;
+			e.Handled = true;
+			return;
+		}
+
+		e.DragEffects = DragDropEffects.Move;
+		e.Handled = true;
+	}
+
+	private void OnMoveListDrop(object? sender, DragEventArgs e)
+	{
+		if (!TryGetItemFromEventSource(e.Source, out var newIndex, out _))
+			return;
+
+		if (!TryGetDraggedFolder(e.DataTransfer, out var folder))
+			return;
+
+		var oldIndex = -1;
+		for (var i = 0; i < _items.Count; i++)
+		{
+			if (!_items[i].Folder.Equals(folder, StringComparison.OrdinalIgnoreCase))
+				continue;
+			oldIndex = i;
+			break;
+		}
+
+		if (oldIndex < 0 || oldIndex == newIndex)
+			return;
+
+		if (!Configs.MoveMove(oldIndex, newIndex))
+			return;
+
+		_modified = true;
+		RefreshList();
+		EnsureIndex(newIndex);
+		e.Handled = true;
 	}
 
 	private async void OnOkClick(object? sender, RoutedEventArgs e)
@@ -322,7 +431,13 @@ public partial class MoveDialog : Window
 
 	private async Task AcceptAndClose()
 	{
-		var folder = DestTextBox.Text?.Trim() ?? string.Empty;
+		if (TryGetSelected(out _, out var selectedItem) && !selectedItem.Enabled)
+		{
+			await SuppUi.OkAsync(T("The selected location is unavailable"), T("Error"));
+			return;
+		}
+
+		var folder = selectedItem?.Folder ?? (DestTextBox.Text?.Trim() ?? string.Empty);
 		if (!Directory.Exists(folder))
 		{
 			await SuppUi.OkAsync($"{T("The specified directory does not exist")}{Environment.NewLine}{folder}", T("Error"));
@@ -339,8 +454,16 @@ public partial class MoveDialog : Window
 
 	private void OnDialogKeyDown(object? sender, KeyEventArgs e)
 	{
+		if (_items.Count == 0)
+			return;
+
+		// ReSharper disable once SwitchStatementMissingSomeEnumCasesNoDefault
 		switch (e.Key)
 		{
+			case Key.Enter:
+				_ = AcceptAndCloseSafeAsync();
+				e.Handled = true;
+				break;
 			case Key.Escape:
 				Close(false);
 				e.Handled = true;
@@ -364,7 +487,104 @@ public partial class MoveDialog : Window
 				MoveSelectedBy(1);
 				e.Handled = true;
 				break;
+			case Key.Up when e.KeyModifiers == KeyModifiers.None && !IsTextInputFocused():
+				MoveSelectionBy(-1);
+				e.Handled = true;
+				break;
+			case Key.Down when e.KeyModifiers == KeyModifiers.None && !IsTextInputFocused():
+				MoveSelectionBy(1);
+				e.Handled = true;
+				break;
+			case Key.PageUp when e.KeyModifiers == KeyModifiers.None && !IsTextInputFocused():
+				MoveSelectionBy(-10);
+				e.Handled = true;
+				break;
+			case Key.PageDown when e.KeyModifiers == KeyModifiers.None && !IsTextInputFocused():
+				MoveSelectionBy(10);
+				e.Handled = true;
+				break;
+			case Key.Home when e.KeyModifiers == KeyModifiers.None && !IsTextInputFocused():
+				EnsureIndex(0);
+				e.Handled = true;
+				break;
+			case Key.End when e.KeyModifiers == KeyModifiers.None && !IsTextInputFocused():
+				EnsureIndex(_items.Count - 1);
+				e.Handled = true;
+				break;
 		}
+	}
+
+	private void FocusMoveListLater()
+	{
+		Dispatcher.UIThread.Post(() =>
+		{
+			if (_items.Count == 0)
+				return;
+
+			if (MoveListBox.SelectedIndex < 0)
+				EnsureIndex(Math.Clamp(sLastSelected, 0, _items.Count - 1));
+
+			MoveListBox.Focus();
+		}, DispatcherPriority.Background);
+	}
+
+	private void MoveSelectionBy(int delta)
+	{
+		if (_items.Count == 0)
+			return;
+
+		var current = MoveListBox.SelectedIndex;
+		if (current < 0)
+			current = Math.Clamp(sLastSelected, 0, _items.Count - 1);
+
+		var next = Math.Clamp(current + delta, 0, _items.Count - 1);
+		EnsureIndex(next);
+	}
+
+	private bool IsTextInputFocused()
+	{
+		var focused = TopLevel.GetTopLevel(this)?.FocusManager?.GetFocusedElement();
+		return focused is TextBox || (focused as Visual)?.GetSelfAndVisualAncestors().OfType<TextBox>().Any() == true;
+	}
+
+	private void UpdateSelectionUiState()
+	{
+		var enabled = !TryGetSelected(out _, out var selectedItem) || selectedItem.Enabled;
+		AliasTextBox.IsEnabled = enabled;
+		ApplyAliasButton.IsEnabled = enabled;
+		OkButton.IsEnabled = enabled;
+	}
+
+	private bool TryGetItemFromEventSource(object? source, out int index, [NotNullWhen(true)] out MoveDialogItem? item)
+	{
+		index = -1;
+		item = null;
+
+		if (source is not Visual visual)
+			return false;
+
+		var listBoxItem = visual.GetSelfAndVisualAncestors().OfType<ListBoxItem>().FirstOrDefault();
+		if (listBoxItem?.DataContext is not MoveDialogItem moveItem)
+			return false;
+
+		index = _items.IndexOf(moveItem);
+		if (index < 0)
+			return false;
+
+		item = moveItem;
+		return true;
+	}
+
+	private static bool TryGetDraggedFolder(IDataTransfer dataTransfer, [NotNullWhen(true)] out string? folder)
+	{
+		folder = null;
+
+		var text = dataTransfer.TryGetText();
+		if (string.IsNullOrWhiteSpace(text) || !text.StartsWith(MoveDragPrefix, StringComparison.Ordinal))
+			return false;
+
+		folder = text[MoveDragPrefix.Length..].Trim();
+		return !string.IsNullOrWhiteSpace(folder);
 	}
 
 	private void OnDialogClosed(object? sender, EventArgs e)

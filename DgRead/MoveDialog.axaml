@@ -28,13 +28,18 @@
         <ListBox x:Name="MoveListBox"
                  Grid.Row="2"
                  SelectionMode="Single"
+                  DragDrop.AllowDrop="True"
+                  PointerPressed="OnMoveListPointerPressed"
+                  PointerMoved="OnMoveListPointerMoved"
+                  DragDrop.DragOver="OnMoveListDragOver"
+                  DragDrop.Drop="OnMoveListDrop"
                  DoubleTapped="OnMoveListDoubleTapped">
             <ListBox.ItemTemplate>
                 <DataTemplate x:DataType="local:MoveDialogItem">
                     <Grid ColumnDefinitions="56,160,*" Margin="4,2">
                         <TextBlock Grid.Column="0" Text="{Binding No}" HorizontalAlignment="Right" Margin="0,0,8,0" />
                         <TextBlock Grid.Column="1" Text="{Binding Alias}" TextTrimming="CharacterEllipsis" Margin="0,0,8,0" />
-                        <TextBlock Grid.Column="2" Text="{Binding Folder}" TextTrimming="CharacterEllipsis" />
+                        <TextBlock Grid.Column="2" Text="{Binding FolderDisplay}" TextTrimming="CharacterEllipsis" />
                     </Grid>
                 </DataTemplate>
             </ListBox.ItemTemplate>
@@ -46,17 +51,23 @@
             <Button x:Name="AddLocationButton" Grid.Column="2" MinWidth="100" Click="OnAddLocationClick" />
         </Grid>
 
-        <Grid Grid.Row="4" ColumnDefinitions="Auto,*,Auto,Auto,Auto,Auto" ColumnSpacing="8">
+        <Grid Grid.Row="4" ColumnDefinitions="Auto,2*,Auto,Auto,Auto,Auto" ColumnSpacing="8">
             <TextBlock x:Name="AliasLabelTextBlock" Grid.Column="0" VerticalAlignment="Center" />
             <TextBox x:Name="AliasTextBox" Grid.Column="1" />
-            <Button x:Name="ApplyAliasButton" Grid.Column="2" MinWidth="100" Click="OnApplyAliasClick" />
-            <Button x:Name="MoveUpButton" Grid.Column="3" MinWidth="90" Click="OnMoveUpClick" />
-            <Button x:Name="MoveDownButton" Grid.Column="4" MinWidth="90" Click="OnMoveDownClick" />
-            <Button x:Name="DeleteLocationButton" Grid.Column="5" MinWidth="110" Click="OnDeleteLocationClick" />
+            <Button x:Name="ApplyAliasButton" Grid.Column="2" MinWidth="100" HorizontalAlignment="Center" Click="OnApplyAliasClick" />
+            <Button x:Name="MoveUpButton" Grid.Column="3" Width="34" Height="30" Click="OnMoveUpClick">
+                <PathIcon Width="14" Height="14" Data="M3 11 L8 4 L13 11 Z" />
+            </Button>
+            <Button x:Name="MoveDownButton" Grid.Column="4" Width="34" Height="30" Click="OnMoveDownClick">
+                <PathIcon Width="14" Height="14" Data="M3 5 L8 12 L13 5 Z" />
+            </Button>
+            <Button x:Name="DeleteLocationButton" Grid.Column="5" Width="34" Height="30" Click="OnDeleteLocationClick">
+                <PathIcon Width="14" Height="14" Data="M5 4 L11 4 L11 3 L13 3 L13 5 L3 5 L3 3 L5 3 Z M4 6 L12 6 L11.5 13 L4.5 13 Z" />
+            </Button>
         </Grid>
 
         <StackPanel Grid.Row="5" Orientation="Horizontal" HorizontalAlignment="Center" Spacing="8" Margin="0,8,0,0">
-            <Button x:Name="OkButton" MinWidth="120" HorizontalContentAlignment="Center" Click="OnOkClick" />
+            <Button x:Name="OkButton" MinWidth="120" IsDefault="True" HorizontalContentAlignment="Center" Click="OnOkClick" />
             <Button x:Name="CancelButton" MinWidth="90" HorizontalContentAlignment="Center" Click="OnCancelClick" />
         </StackPanel>
     </Grid>

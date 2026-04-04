@@ -8,7 +8,7 @@ namespace DgRead;
 
 internal static class Configs
 {
-	public record MoveInfo(int No, string Alias, string Folder);
+	public record MoveInfo(int No, string Alias, string Folder, bool Enabled);
 
 	public record BookmarkInfo(int Id, string Path, int Page, DateTime Created, bool Incoming);
 
@@ -81,13 +81,13 @@ internal static class Configs
 				if (conn.ExecuteSql(query))
 					continue;
 				Debug.WriteLine($"쿼리 실패: {query}");
-              _ = SuppUi.OkAsync(T("Failed to create config file!"), T("Error"));
+				_ = SuppUi.OkAsync(T("Failed to create config file!"), T("Error"));
 				return false;
 			}
 		}
 		catch (Exception e)
 		{
-            _ = SuppUi.OkAsync($"{T("Failed to access config file!")}{Environment.NewLine}{Environment.NewLine}{e.Message}", T("Error"));
+			_ = SuppUi.OkAsync($"{T("Failed to access config file!")}{Environment.NewLine}{Environment.NewLine}{e.Message}", T("Error"));
 			return false;
 		}
 
@@ -163,7 +163,8 @@ internal static class Configs
 					var no = moveRdr.GetInt32(0);
 					var alias = moveRdr.GetString(1);
 					var folder = moveRdr.GetString(2);
-					sMoves.Add(new MoveInfo(no, alias, folder));
+					var enabled = Directory.Exists(folder);
+					sMoves.Add(new MoveInfo(no, alias, folder, enabled));
 				}
 			}
 		}
@@ -582,7 +583,8 @@ internal static class Configs
 			return 1; // 최대 100개, 1은 최대 개수 초과
 		if (sMoves.Any(x => x.Folder.Equals(folder, StringComparison.OrdinalIgnoreCase)))
 			return 2; // 이미 존재하는 경로, 2는 중복
-		sMoves.Add(new MoveInfo(last, alias, folder));
+		var enabled = Directory.Exists(folder);
+		sMoves.Add(new MoveInfo(last, alias, folder, enabled));
 		return 0; // 성공
 	}
 
@@ -591,7 +593,8 @@ internal static class Configs
 	{
 		if (index < 0 || index >= sMoves.Count)
 			return;
-		sMoves[index] = new MoveInfo(index, alias, folder);
+		var enabled = Directory.Exists(folder);
+		sMoves[index] = new MoveInfo(index, alias, folder, enabled);
 	}
 
 	// 이동 위치 인덱스 재조정
