@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 // ReSharper disable SwitchStatementMissingSomeEnumCasesNoDefault
+// ReSharper disable SwitchStatementHandlesSomeKnownEnumValuesWithDefault
 
 namespace DgRead.Chaek;
 
@@ -12,6 +13,9 @@ namespace DgRead.Chaek;
 public abstract class BookBase : IDisposable
 {
 	private readonly Dictionary<int, byte[]> _cache = [];
+	private readonly Dictionary<int, PageInfo> _pageInfos = [];
+
+	private sealed record PageInfo(int Width, int Height, bool IsLandscape, bool HasAnimation);
 
 	/// <summary>
 	/// 책의 전체 경로입니다.
@@ -49,21 +53,28 @@ public abstract class BookBase : IDisposable
 	public long CacheSize { get; private set; }
 
 	/// <summary>
-	/// 보기 모드입니다. <see cref="ViewMode.Follow"/>면 전역 설정을 따릅니다.
+	/// 보기 모드입니다.
 	/// </summary>
-	public ViewMode ViewMode { get; set; } = ViewMode.Follow;
+	public ViewMode ViewMode { get; set; } = ViewMode.Single;
+
+	/// <summary>
+	/// 2장/스크롤 모드 지원 여부입니다.
+	/// </summary>
+	public virtual bool SupportsMultiPageModes => true;
 
 	/// <summary>
 	/// 책 엔트리 저장소입니다.
 	/// </summary>
 	protected readonly List<object> Entries = [];
+	private int _nextStep = 1;
+	private int _prevStep = 1;
 
-	private ViewMode ActualViewMode => ViewMode == ViewMode.Follow ? Configs.ViewMode : ViewMode;
+	private ViewMode ActualViewMode => ViewMode;
 
 	/// <summary>
 	/// 엔트리 스트림을 엽니다.
 	/// </summary>
-	protected abstract Stream? OpenEntryStream(object entry);
+	protected abstract MemoryStream? ReadStream(object entry);
 
 	/// <summary>
 	/// 엔트리 이름을 반환합니다.
@@ -138,10 +149,13 @@ public abstract class BookBase : IDisposable
 	{
 		PageLeft?.Dispose();
 		PageRight?.Dispose();
+		_nextStep = 1;
+		_prevStep = 1;
 
 		switch (ActualViewMode)
 		{
-			case ViewMode.Fit:
+			case ViewMode.Single:
+			case ViewMode.Scroll:
 				PageLeft = ReadPage(CurrentPage);
 				PageRight = null;
 				break;
@@ -149,24 +163,38 @@ public abstract class BookBase : IDisposable
 			case ViewMode.LeftToRight:
 			case ViewMode.RightToLeft:
 			{
-				var first = ReadPage(CurrentPage);
-				PageImage? second = null;
-				if (!first.HasAnimation && CurrentPage + 1 < TotalPage)
+				var firstPage = ReadPage(CurrentPage);
+				var firstInfo = GetPageInfo(CurrentPage, firstPage);
+				PageImage? secondPage = null;
+				if (firstInfo is { HasAnimation: false, IsLandscape: false } && CurrentPage + 1 < TotalPage)
 				{
-					second = ReadPage(CurrentPage + 1);
-					if (second.HasAnimation)
-						second = null;
+					secondPage = ReadPage(CurrentPage + 1);
+					var secondInfo = GetPageInfo(CurrentPage + 1, secondPage);
+					if (secondInfo.HasAnimation || secondInfo.IsLandscape)
+					{
+						secondPage.Dispose();
+						secondPage = null;
+					}
+				}
+
+				_nextStep = secondPage == null ? 1 : 2;
+
+				if (CurrentPage > 0)
+				{
+					var prevInfo = GetPageInfo(CurrentPage - 1);
+					var isPrevSingle = prevInfo.HasAnimation || prevInfo.IsLandscape || firstInfo.HasAnimation || firstInfo.IsLandscape;
+					_prevStep = isPrevSingle ? 1 : Math.Min(2, CurrentPage);
 				}
 
 				if (ActualViewMode == ViewMode.LeftToRight)
 				{
-					PageLeft = first;
-					PageRight = second;
+					PageLeft = firstPage;
+					PageRight = secondPage;
 				}
 				else
 				{
-					PageLeft = second;
-					PageRight = first;
+					PageLeft = secondPage;
+					PageRight = firstPage;
 				}
 
 				break;
@@ -182,14 +210,14 @@ public abstract class BookBase : IDisposable
 		var prev = CurrentPage;
 		switch (ActualViewMode)
 		{
-			case ViewMode.Fit:
+			case ViewMode.Single:
+			case ViewMode.Scroll:
 				if (CurrentPage + 1 < TotalPage)
 					CurrentPage++;
 				break;
 			case ViewMode.LeftToRight:
 			case ViewMode.RightToLeft:
-				if (CurrentPage + 2 < TotalPage)
-					CurrentPage += 2;
+				CurrentPage = Math.Clamp(CurrentPage + _nextStep, 0, TotalPage - 1);
 				break;
 		}
 
@@ -204,12 +232,13 @@ public abstract class BookBase : IDisposable
 		var prev = CurrentPage;
 		switch (ActualViewMode)
 		{
-			case ViewMode.Fit:
+			case ViewMode.Single:
+			case ViewMode.Scroll:
 				CurrentPage--;
 				break;
 			case ViewMode.LeftToRight:
 			case ViewMode.RightToLeft:
-				CurrentPage -= 2;
+				CurrentPage -= _prevStep;
 				break;
 		}
 
@@ -217,6 +246,12 @@ public abstract class BookBase : IDisposable
 			CurrentPage = 0;
 		return prev != CurrentPage;
 	}
+
+	/// <summary>
+	/// 임의 페이지 이미지를 로드합니다.
+	/// </summary>
+	public PageImage GetPageImage(int pageNo) =>
+		ReadPage(pageNo);
 
 	/// <summary>
 	/// 지정 페이지로 이동합니다.
@@ -248,6 +283,7 @@ public abstract class BookBase : IDisposable
 		foreach (var (_, value) in _cache)
 			value.AsSpan().Clear();
 		_cache.Clear();
+		_pageInfos.Clear();
 
 		PageLeft?.Dispose();
 		PageRight?.Dispose();
@@ -261,10 +297,14 @@ public abstract class BookBase : IDisposable
 		if (pageNo < 0 || pageNo >= TotalPage)
 			return BookImageDecoder.Decode([]);
 
+		PageImage page;
 		if (!TryReadRaw(pageNo, out var raw) || raw == null || raw.Length == 0)
-			return BookImageDecoder.Decode([]);
+			page = BookImageDecoder.Decode([]);
+		else
+			page = BookImageDecoder.Decode(raw);
 
-		return BookImageDecoder.Decode(raw);
+		CachePageInfo(pageNo, page);
+		return page;
 	}
 
 	private bool TryReadRaw(int pageNo, out byte[]? raw)
@@ -272,15 +312,13 @@ public abstract class BookBase : IDisposable
 		if (_cache.TryGetValue(pageNo, out raw))
 			return true;
 
-		using var st = OpenEntryStream(Entries[pageNo]);
-		if (st == null)
+		using var ms = ReadStream(Entries[pageNo]);
+		if (ms == null)
 		{
 			raw = null;
 			return false;
 		}
 
-		using var ms = new MemoryStream();
-		st.CopyTo(ms);
 		raw = ms.ToArray();
 		CacheRaw(pageNo, raw);
 		return true;
@@ -301,6 +339,35 @@ public abstract class BookBase : IDisposable
 
 		_cache[pageNo] = raw;
 		CacheSize += raw.Length;
+	}
+
+	private PageInfo GetPageInfo(int pageNo, PageImage? loadedPage = null)
+	{
+		if (_pageInfos.TryGetValue(pageNo, out var info))
+			return info;
+
+		PageImage? localPage = null;
+		var page = loadedPage;
+		if (page == null)
+		{
+			localPage = ReadPage(pageNo);
+			page = localPage;
+		}
+
+		info = CachePageInfo(pageNo, page);
+
+		localPage?.Dispose();
+		return info;
+	}
+
+	private PageInfo CachePageInfo(int pageNo, PageImage page)
+	{
+		var bmp = page.GetBitmap();
+		var width = (int)Math.Round(bmp.Size.Width);
+		var height = (int)Math.Round(bmp.Size.Height);
+		var info = new PageInfo(width, height, width > height, page.HasAnimation);
+		_pageInfos[pageNo] = info;
+		return info;
 	}
 
 	/// <summary>

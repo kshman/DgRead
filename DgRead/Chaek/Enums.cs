@@ -18,14 +18,16 @@ public enum ViewAlign
 /// </summary>
 public enum ViewMode
 {
-	/// <summary>화면에 맞춤</summary>
-	Fit = 0,
+	/// <summary>1장 보기</summary>
+	Single = 0,
+	/// <summary>이전 이름(하위 호환)</summary>
+	Fit = Single,
 	/// <summary>왼쪽에서 오른쪽으로</summary>
 	LeftToRight = 2,
 	/// <summary>오른쪽에서 왼쪽으로</summary>
 	RightToLeft = 3,
-	/// <summary>따라감</summary>
-	Follow = 255,
+	/// <summary>세로 스크롤(웹툰) 보기</summary>
+	Scroll = 4,
 }
 
 /// <summary>

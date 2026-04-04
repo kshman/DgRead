@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.IO;
+using System.IO.Compression;
 using System.Linq;
 
 namespace DgRead.Chaek;
@@ -11,6 +12,9 @@ namespace DgRead.Chaek;
 public sealed class BookFolder : BookBase
 {
 	private readonly DirectoryInfo _directory;
+
+	/// <inheritdoc />
+	public override bool SupportsMultiPageModes => false;
 
 	/// <summary>
 	/// 폴더 책을 생성합니다.
@@ -37,11 +41,16 @@ public sealed class BookFolder : BookBase
 	}
 
 	/// <inheritdoc />
-	protected override Stream? OpenEntryStream(object entry)
+	protected override MemoryStream? ReadStream(object entry)
 	{
-		if (entry is not FileInfo fi || !fi.Exists)
+		if (entry is not FileInfo { Exists: true } fi)
 			return null;
-		return fi.OpenRead();
+
+		using var st = fi.OpenRead();
+		var ms = new MemoryStream();
+		st.CopyTo(ms);
+		ms.Position = 0;
+		return ms;
 	}
 
 	/// <inheritdoc />
@@ -92,7 +101,7 @@ public sealed class BookFolder : BookBase
 			return null;
 
 		var dirs = parent.GetDirectories()
-			.OrderBy(x => x.Name, StringComparer.OrdinalIgnoreCase)
+			.OrderBy(x => x, new Doumi.DirectoryInfoComparer())
 			.ToList();
 		var idx = dirs.FindIndex(x => x.FullName.Equals(_directory.FullName, StringComparison.OrdinalIgnoreCase));
 		if (idx < 0)
@@ -109,7 +118,7 @@ public sealed class BookFolder : BookBase
 	{
 		var files = _directory.GetFiles()
 			.Where(x => BookImageDecoder.IsSupported(x.Name))
-			.OrderBy(x => x.Name, StringComparer.OrdinalIgnoreCase)
+			.OrderBy(x => x, new Doumi.FileInfoComparer())
 			.ToList();
 
 		Entries.Clear();

@@ -30,7 +30,7 @@ public sealed class BookZip : BookBase
 
 		var entries = _zip.Entries
 			.Where(x => !string.IsNullOrEmpty(x.Name) && BookImageDecoder.IsSupported(x.Name))
-			.OrderBy(x => x.FullName, StringComparer.OrdinalIgnoreCase)
+			.OrderBy(x => x, new ZipArchiveEntryComparer())
 			.Cast<object>()
 			.ToList();
 
@@ -38,7 +38,7 @@ public sealed class BookZip : BookBase
 	}
 
 	/// <inheritdoc />
-	protected override Stream? OpenEntryStream(object entry)
+	protected override MemoryStream? ReadStream(object entry)
 	{
 		if (entry is not ZipArchiveEntry ze)
 			return null;
@@ -59,8 +59,7 @@ public sealed class BookZip : BookBase
 	{
 		for (var i = 0; i < Entries.Count; i++)
 		{
-			if (Entries[i] is not ZipArchiveEntry ze)
-				continue;
+			var ze = (ZipArchiveEntry)Entries[i];
 			yield return new BookEntryInfo(i, ze.FullName, ze.Length, ze.LastWriteTime);
 		}
 	}
@@ -145,5 +144,12 @@ public sealed class BookZip : BookBase
 		base.DisposeCore();
 		_zip.Dispose();
 		_stream.Dispose();
+	}
+
+	//
+	private class ZipArchiveEntryComparer : IComparer<ZipArchiveEntry>
+	{
+		public int Compare(ZipArchiveEntry? x, ZipArchiveEntry? y) =>
+			Doumi.StringAsNumericCompare(x?.FullName, y?.FullName);
 	}
 }

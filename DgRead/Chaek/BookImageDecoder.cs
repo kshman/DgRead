@@ -12,6 +12,16 @@ namespace DgRead.Chaek;
 /// </summary>
 internal static class BookImageDecoder
 {
+	private enum DetectedType
+	{
+		Unknown,
+		Bmp,
+		Jpeg,
+		Png,
+		Gif,
+		Webp,
+	}
+
 	private static readonly HashSet<string> sSupportedExtensions = new(StringComparer.OrdinalIgnoreCase)
 	{
 		".bmp", ".jpg", ".jpeg", ".png", ".gif", ".webp"
@@ -36,14 +46,19 @@ internal static class BookImageDecoder
 	{
 		try
 		{
-			using var image = Image.Load<Rgba32>(raw);
-			var formatName = image.Metadata.DecodedImageFormat?.Name ?? string.Empty;
-			if (image.Frames.Count > 1 && string.Equals(formatName, "GIF", StringComparison.OrdinalIgnoreCase))
-				return DecodeGifAnimation(image);
-			if (image.Frames.Count > 1 && string.Equals(formatName, "WEBP", StringComparison.OrdinalIgnoreCase))
-				return DecodeWebpAnimation(image);
+			if (!TryDetectImageType(raw, out var type, out var hasAnimation) || !hasAnimation)
+				return DecodeStatic(raw);
 
-			return new PageImage(ToBitmap(image));
+			using var image = Image.Load<Rgba32>(raw);
+			if (image.Frames.Count <= 1)
+				return DecodeStatic(raw);
+
+			return type switch
+			{
+				DetectedType.Gif => DecodeGifAnimation(image),
+				DetectedType.Webp => DecodeWebpAnimation(image),
+				_ => DecodeStatic(raw)
+			};
 		}
 		catch (Exception e)
 		{
@@ -114,6 +129,155 @@ internal static class BookImageDecoder
 		image.SaveAsPng(ms);
 		ms.Position = 0;
 		return new Bitmap(ms);
+	}
+
+	private static PageImage DecodeStatic(byte[] raw)
+	{
+		using var ms = new MemoryStream(raw, writable: false);
+		return new PageImage(new Bitmap(ms));
+	}
+
+	private static bool TryDetectImageType(byte[] raw, out DetectedType type, out bool hasAnimation)
+	{
+		type = DetectedType.Unknown;
+		hasAnimation = false;
+
+		if (raw.Length < 4)
+			return false;
+
+		if (IsJpeg(raw))
+		{
+			type = DetectedType.Jpeg;
+			return true;
+		}
+
+		if (IsPng(raw))
+		{
+			type = DetectedType.Png;
+			return true;
+		}
+
+		if (IsGif(raw))
+		{
+			type = DetectedType.Gif;
+			hasAnimation = HasGifAnimation(raw);
+			return true;
+		}
+
+		if (IsWebp(raw))
+		{
+			type = DetectedType.Webp;
+			hasAnimation = HasWebpAnimation(raw);
+			return true;
+		}
+
+		if (IsBmp(raw))
+		{
+			type = DetectedType.Bmp;
+			return true;
+		}
+
+		return false;
+	}
+
+	private static bool IsJpeg(byte[] raw) =>
+		raw.Length >= 3 && raw[0] == 0xFF && raw[1] == 0xD8 && raw[^2] == 0xFF && raw[^1] == 0xD9;
+
+	private static bool IsPng(byte[] raw) =>
+		raw.Length >= 8 && raw[0] == 0x89 && raw[1] == 0x50 && raw[2] == 0x4E && raw[3] == 0x47;
+
+	private static bool IsGif(byte[] raw) =>
+		raw.Length >= 6 && raw[0] == 'G' && raw[1] == 'I' && raw[2] == 'F';
+
+	private static bool IsBmp(byte[] raw) =>
+		raw.Length >= 26 && raw[0] == 'B' && raw[1] == 'M';
+
+	private static bool IsWebp(byte[] raw) =>
+		raw.Length >= 16 &&
+		raw[0] == 'R' && raw[1] == 'I' && raw[2] == 'F' && raw[3] == 'F' &&
+		raw[8] == 'W' && raw[9] == 'E' && raw[10] == 'B' && raw[11] == 'P';
+
+	private static bool HasGifAnimation(byte[] raw)
+	{
+		if (raw.Length < 13)
+			return false;
+
+		var pos = 13;
+		if ((raw[10] & 0x80) != 0)
+		{
+			var gctSize = 3 * (1 << ((raw[10] & 0x07) + 1));
+			pos += gctSize;
+		}
+
+		var imageCount = 0;
+		while (pos < raw.Length - 1)
+		{
+			var b = raw[pos];
+			if (b == 0x21)
+			{
+				if (pos + 1 >= raw.Length) break;
+				pos += 2;
+				while (pos < raw.Length && raw[pos] != 0x00)
+				{
+					var blockSize = raw[pos];
+					pos += blockSize + 1;
+				}
+				if (pos < raw.Length) pos++;
+			}
+			else if (b == 0x2C)
+			{
+				imageCount++;
+				if (imageCount > 1)
+					return true;
+
+				pos += 10;
+				if (pos >= raw.Length) break;
+
+				if ((raw[pos - 1] & 0x80) != 0)
+				{
+					var lctSize = 3 * (1 << ((raw[pos - 1] & 0x07) + 1));
+					pos += lctSize;
+				}
+
+				if (pos < raw.Length) pos++; // LZW min code size
+				while (pos < raw.Length && raw[pos] != 0x00)
+				{
+					var blockSize = raw[pos];
+					pos += blockSize + 1;
+				}
+				if (pos < raw.Length) pos++;
+			}
+			else if (b == 0x3B)
+			{
+				break;
+			}
+			else
+			{
+				pos++;
+			}
+		}
+
+		return false;
+	}
+
+	private static bool HasWebpAnimation(byte[] raw)
+	{
+		if (raw.Length >= 30 && raw[12] == 'V' && raw[13] == 'P' && raw[14] == '8' && raw[15] == 'X')
+			return (raw[20] & 0x02) != 0;
+
+		for (var i = 12; i + 8 < raw.Length;)
+		{
+			if (raw[i] == 'A' && raw[i + 1] == 'N' && raw[i + 2] == 'M' && raw[i + 3] == 'F')
+				return true;
+
+			var chunkSize = raw[i + 4] | (raw[i + 5] << 8) | (raw[i + 6] << 16) | (raw[i + 7] << 24);
+			if (chunkSize < 0)
+				break;
+
+			i += chunkSize + 8 + (chunkSize & 1);
+		}
+
+		return false;
 	}
 
 	private static Bitmap CreateFallbackBitmap() =>

@@ -3,6 +3,7 @@
 "Fit to Screen" = "화면에 맞춤"
 "Left to Right" = "왼쪽에서 오른쪽으로"
 "Right to Left" = "오른쪽에서 왼쪽으로"
+"Scroll" = "세로 스크롤"
 "Image Quality" = "그림 품질"
 "Fast Quality" = "빠른 처리"
 "Default Quality" = "기본 품질"
@@ -31,3 +32,5 @@
 "[No book opened]" = "[열린 책이 없어요]"
 "Failed to open book/file" = "책/파일을 열지 못했습니다"
 "Failed to open folder" = "폴더를 열지 못했습니다"
+"Unsupported book format" = "지원하지 않는 책 형식입니다"
+"Folder mode does not support deleting the source directly" = "폴더 모드는 원본 삭제를 지원하지 않습니다"

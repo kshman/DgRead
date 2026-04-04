@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using System.Threading.Tasks;
@@ -7,8 +8,10 @@ using Avalonia.Controls;
 using Avalonia.Controls.ApplicationLifetimes;
 using Avalonia.Input;
 using Avalonia.Interactivity;
+using Avalonia.Media;
 using Avalonia.Platform.Storage;
 using Avalonia.Styling;
+using Avalonia.Threading;
 using Avalonia.VisualTree;
 
 namespace DgRead;
@@ -20,6 +23,17 @@ public partial class ReadWindow : Window
 {
 	private string _openedEntryName = string.Empty;
 	private BookBase? _book;
+	private readonly DispatcherTimer _animationTimer = new() { Interval = TimeSpan.FromMilliseconds(33) };
+	private readonly List<AnimationBinding> _animations = [];
+	private readonly List<PageImage> _scrollPageImages = [];
+	private readonly ZpsController _zps;
+
+	private sealed class AnimationBinding(PageImage page, Image target)
+	{
+		public PageImage Page { get; } = page;
+		public Image Target { get; } = target;
+		public int Remaining { get; set; } = 1;
+	}
 
 	/// <summary>
 	/// <see cref="ReadWindow"/> 인스턴스를 초기화합니다.
@@ -29,6 +43,8 @@ public partial class ReadWindow : Window
 		InitializeComponent();
 		MinWidth = 550;
 		MinHeight = 350;
+
+		_zps = new ZpsController(ReaderScrollViewer, LeftPageImage, RightPageImage);
 
 		ApplyLocalizedTexts();
 		ApplyViewMenuDefaults();
@@ -49,8 +65,17 @@ public partial class ReadWindow : Window
 		Closing += OnClosing;
 		Closed += OnClosed;
 		PropertyChanged += OnWindowPropertyChanged;
+		_animationTimer.Tick += OnAnimationTick;
+		AddHandler(DragDrop.DragOverEvent, OnWindowDragOver);
+		AddHandler(DragDrop.DropEvent, OnWindowDrop);
+		AddHandler(KeyDownEvent, OnReadWindowKeyDown, RoutingStrategies.Tunnel, true);
+
+		_zps.Attach();
+		ReaderScrollViewer.AddHandler(InputElement.PointerWheelChangedEvent, OnReaderPointerWheelPreview, RoutingStrategies.Tunnel, true);
 
 		UpdateTitleBarState();
+		RenderBook();
+		Focus();
 	}
 
 	/// <summary>
@@ -63,6 +88,7 @@ public partial class ReadWindow : Window
 		FitToScreenMenuItem.Header = T("Fit to Screen");
 		LeftToRightMenuItem.Header = T("Left to Right");
 		RightToLeftMenuItem.Header = T("Right to Left");
+		ScrollModeMenuItem.Header = T("Scroll");
 
 		ImageQualityLabel.Header = T("Image Quality");
 		FastQualityMenuItem.Header = T("Fast Quality");
@@ -111,14 +137,16 @@ public partial class ReadWindow : Window
 	/// </summary>
 	private void ApplyConfigToViewMenu()
 	{
-		StretchViewMenuItem.IsChecked = Configs.ViewZoom;
+		StretchViewMenuItem.IsChecked = true;
+		StretchViewMenuItem.IsEnabled = false;
 
 		SetSingleChecked(Configs.ViewMode switch
 		{
 			ViewMode.LeftToRight => LeftToRightMenuItem,
 			ViewMode.RightToLeft => RightToLeftMenuItem,
+			ViewMode.Scroll => ScrollModeMenuItem,
 			_ => FitToScreenMenuItem
-		}, FitToScreenMenuItem, LeftToRightMenuItem, RightToLeftMenuItem);
+		}, FitToScreenMenuItem, LeftToRightMenuItem, RightToLeftMenuItem, ScrollModeMenuItem);
 
 		SetSingleChecked(Configs.ViewQuality switch
 		{
@@ -185,6 +213,65 @@ public partial class ReadWindow : Window
 	}
 
 	/// <summary>
+	/// 드래그 오버 시 파일 드롭 가능 상태를 설정합니다.
+	/// </summary>
+	private void OnWindowDragOver(object? sender, DragEventArgs e)
+	{
+		e.DragEffects = e.DataTransfer.Contains(DataFormat.File) ? DragDropEffects.Copy : DragDropEffects.None;
+	}
+
+	/// <summary>
+	/// 파일/폴더 드롭을 처리하여 책을 엽니다.
+	/// </summary>
+	private void OnWindowDrop(object? sender, DragEventArgs e)
+	{
+		try
+		{
+			var files = e.DataTransfer.TryGetFiles();
+			var item = files?.FirstOrDefault();
+			if (item == null)
+				return;
+
+			var path = item.TryGetLocalPath();
+			if (string.IsNullOrWhiteSpace(path))
+				return;
+
+			if (Directory.Exists(path))
+			{
+				Configs.LastFolder = path;
+			}
+			else if (File.Exists(path))
+			{
+				var dir = Path.GetDirectoryName(path);
+				if (!string.IsNullOrWhiteSpace(dir))
+					Configs.LastFolder = dir;
+				Configs.LastFileName = path;
+			}
+
+			OpenBookByPath(path);
+		}
+		catch (Exception ex)
+		{
+			SuppUi.Ok($"{T("Failed to open book/file")}{Environment.NewLine}{ex.Message}", "Error");
+		}
+	}
+
+	private void OnReaderPointerWheelPreview(object? sender, PointerWheelEventArgs e)
+	{
+		if (_book == null)
+			return;
+
+		if (_zps.HandleWheelAsZoom(e))
+			return;
+
+		if (_book.ViewMode == ViewMode.Scroll)
+			return;
+
+		PageControl(e.Delta.Y < 0 ? BookControl.Next : BookControl.Previous);
+		e.Handled = true;
+	}
+
+	/// <summary>
 	/// 키 입력을 명령 흐름에 맞춰 처리합니다.
 	/// </summary>
 	private void OnReadWindowKeyDown(object? sender, KeyEventArgs e)
@@ -192,6 +279,12 @@ public partial class ReadWindow : Window
 		if (e is { KeyModifiers: KeyModifiers.Alt, Key: Key.Enter })
 		{
 			ToggleFullscreen();
+			e.Handled = true;
+			return;
+		}
+
+		if (_zps.HandleZoomHotkeys(e))
+		{
 			e.Handled = true;
 			return;
 		}
@@ -228,22 +321,27 @@ public partial class ReadWindow : Window
 			// 페이지
 			case Key.Up:
 			case Key.OemComma:
-				PageControl(BookControl.SeekMinusOne);
+				if (!_zps.TryPanByKeyboard(0, -80))
+					PageControl(BookControl.SeekMinusOne);
 				break;
 
 			case Key.Down:
 			case Key.OemPeriod:
 			case Key.Oem2:
-				PageControl(BookControl.SeekPlusOne);
+				if (!_zps.TryPanByKeyboard(0, 80))
+					PageControl(BookControl.SeekPlusOne);
 				break;
 
 			case Key.Left:
-				PageControl(e.KeyModifiers.HasFlag(KeyModifiers.Shift) ? BookControl.SeekMinusOne : BookControl.Previous);
+				if (!_zps.TryPanByKeyboard(-80, 0))
+					PageControl(e.KeyModifiers.HasFlag(KeyModifiers.Shift) ? BookControl.SeekMinusOne : BookControl.Previous);
 				break;
 
 			case Key.Right:
 			case Key.NumPad0:
 			case Key.Space:
+				if (e.Key == Key.Right && _zps.TryPanByKeyboard(80, 0))
+					break;
 				PageControl(e.KeyModifiers.HasFlag(KeyModifiers.Shift) ? BookControl.SeekPlusOne : BookControl.Next);
 				break;
 
@@ -256,7 +354,9 @@ public partial class ReadWindow : Window
 				break;
 
 			case Key.PageUp:
-				if (e.KeyModifiers.HasFlag(KeyModifiers.Control))
+				if (_zps.IsZoomed)
+					PageControl(IsTwoPageMode() ? BookControl.Previous : BookControl.SeekMinusOne);
+				else if (e.KeyModifiers.HasFlag(KeyModifiers.Control))
 					OpenPrevBook();
 				else
 					PageControl(BookControl.SeekPrevious10);
@@ -264,7 +364,9 @@ public partial class ReadWindow : Window
 
 			case Key.PageDown:
 			case Key.Back:
-				if (e.Key == Key.PageDown && e.KeyModifiers.HasFlag(KeyModifiers.Control))
+				if (_zps.IsZoomed && e.Key == Key.PageDown)
+					PageControl(IsTwoPageMode() ? BookControl.Next : BookControl.SeekPlusOne);
+				else if (e.Key == Key.PageDown && e.KeyModifiers.HasFlag(KeyModifiers.Control))
 					OpenNextBook();
 				else
 					PageControl(BookControl.SeekNext10);
@@ -276,7 +378,7 @@ public partial class ReadWindow : Window
 
 			// 보기
 			case Key.Oem3:
-				UpdateViewMode(ViewMode.Fit);
+				UpdateViewMode(ViewMode.Single);
 				break;
 
 			case Key.D1:
@@ -285,6 +387,10 @@ public partial class ReadWindow : Window
 
 			case Key.D2:
 				UpdateViewMode(ViewMode.RightToLeft);
+				break;
+
+			case Key.D3:
+				UpdateViewMode(ViewMode.Scroll);
 				break;
 
 			case Key.Tab:
@@ -320,8 +426,6 @@ public partial class ReadWindow : Window
 				OpenNextBook();
 				break;
 
-			case Key.Add:
-			case Key.OemPlus:
 			case Key.Insert:
 				MoveBook();
 				break;
@@ -455,6 +559,9 @@ public partial class ReadWindow : Window
 	{
 		try
 		{
+			_animationTimer.Stop();
+			_animationTimer.Tick -= OnAnimationTick;
+			ClearRenderedPages();
 			_book?.Dispose();
 			_book = null;
 			Configs.Close();
@@ -539,6 +646,123 @@ public partial class ReadWindow : Window
 		};
 	}
 
+	private bool IsTwoPageMode() =>
+		_book?.ViewMode is ViewMode.LeftToRight or ViewMode.RightToLeft;
+
+	/// <summary>
+	/// 현재 책/모드 상태를 화면에 렌더링합니다.
+	/// </summary>
+	private void RenderBook()
+	{
+		ClearRenderedPages();
+
+		if (_book == null)
+		{
+			_zps.ResetZoom();
+         _zps.SetTwoPageMode(false);
+			LogoImage.IsVisible = true;
+			SpreadPanel.IsVisible = false;
+			ScrollPagesPanel.IsVisible = false;
+			ReaderScrollViewer.Offset = default;
+			return;
+		}
+
+		var leftPage = _book.PageLeft;
+		var rightPage = _book.PageRight;
+		var singlePage = leftPage ?? rightPage;
+		var actualTwoPage = IsTwoPageMode() && leftPage != null && rightPage != null && !leftPage.HasAnimation && !rightPage.HasAnimation;
+		_zps.SetTwoPageMode(actualTwoPage);
+		_zps.ApplyLayout();
+
+		LogoImage.IsVisible = false;
+
+		if (_book.ViewMode == ViewMode.Scroll && _book.SupportsMultiPageModes)
+		{
+			SpreadPanel.IsVisible = false;
+			ScrollPagesPanel.IsVisible = true;
+
+			for (var i = 0; i < _book.TotalPage; i++)
+			{
+				var page = _book.GetPageImage(i);
+				_scrollPageImages.Add(page);
+
+				var image = new Image
+				{
+					Source = page.GetBitmap(),
+					Stretch = Stretch.Uniform,
+					HorizontalAlignment = Avalonia.Layout.HorizontalAlignment.Center,
+					MaxWidth = 10000,
+					MaxHeight = 10000
+				};
+				ScrollPagesPanel.Children.Add(image);
+
+				if (page.HasAnimation)
+					_animations.Add(new AnimationBinding(page, image));
+			}
+		}
+		else
+		{
+			SpreadPanel.IsVisible = true;
+			ScrollPagesPanel.IsVisible = false;
+
+			if (actualTwoPage)
+			{
+				LeftPageImage.Source = leftPage!.GetBitmap();
+				RightPageImage.Source = rightPage!.GetBitmap();
+				RightPageImage.IsVisible = true;
+			}
+			else
+			{
+				LeftPageImage.Source = singlePage?.GetBitmap();
+				RightPageImage.Source = null;
+				RightPageImage.IsVisible = false;
+
+				if (singlePage?.HasAnimation == true)
+					_animations.Add(new AnimationBinding(singlePage, LeftPageImage));
+			}
+		}
+
+		if (_book.ViewMode is not ViewMode.Scroll && !_zps.IsZoomed)
+			ReaderScrollViewer.Offset = default;
+
+		if (_animations.Count > 0)
+			_animationTimer.Start();
+	}
+
+	private void OnAnimationTick(object? sender, EventArgs e)
+	{
+		if (_animations.Count == 0)
+		{
+			_animationTimer.Stop();
+			return;
+		}
+
+		var intervalMs = (int)_animationTimer.Interval.TotalMilliseconds;
+		foreach (var anim in _animations)
+		{
+			anim.Remaining -= intervalMs;
+			if (anim.Remaining > 0)
+				continue;
+
+			anim.Remaining = Math.Max(20, anim.Page.Animate());
+			anim.Target.Source = anim.Page.GetBitmap();
+		}
+	}
+
+	private void ClearRenderedPages()
+	{
+		_animationTimer.Stop();
+		_animations.Clear();
+
+		LeftPageImage.Source = null;
+		RightPageImage.Source = null;
+		ScrollPagesPanel.Children.Clear();
+
+		foreach (var page in _scrollPageImages)
+			page.Dispose();
+		_scrollPageImages.Clear();
+	}
+
 	/// <summary>
 	/// 페이지 제어 명령을 처리합니다.
 	/// </summary>
@@ -567,7 +791,10 @@ public partial class ReadWindow : Window
 		if (!moved && control != BookControl.Select)
 			return;
 
+		_zps.ResetZoom();
 		_book.PrepareImages();
+		RenderBook();
+		Configs.SetHistory(_book.FullName, _book.CurrentPage);
 	}
 
 	/// <summary>
@@ -630,19 +857,24 @@ public partial class ReadWindow : Window
 	/// </summary>
 	private void UpdateViewMode(ViewMode mode)
 	{
+		if (_book is { SupportsMultiPageModes: false } && mode != ViewMode.Single)
+			mode = ViewMode.Single;
+
 		Configs.ViewMode = mode;
 		if (_book != null)
 		{
 			_book.ViewMode = mode;
 			_book.PrepareImages();
+			RenderBook();
 		}
 
 		SetSingleChecked(mode switch
 		{
 			ViewMode.LeftToRight => LeftToRightMenuItem,
 			ViewMode.RightToLeft => RightToLeftMenuItem,
+			ViewMode.Scroll => ScrollModeMenuItem,
 			_ => FitToScreenMenuItem
-		}, FitToScreenMenuItem, LeftToRightMenuItem, RightToLeftMenuItem);
+		}, FitToScreenMenuItem, LeftToRightMenuItem, RightToLeftMenuItem, ScrollModeMenuItem);
 	}
 
 	/// <summary>
@@ -682,7 +914,7 @@ public partial class ReadWindow : Window
 	/// </summary>
 	private void OnStretchViewClick(object? sender, RoutedEventArgs e)
 	{
-		Configs.ViewZoom = StretchViewMenuItem.IsChecked;
+		StretchViewMenuItem.IsChecked = true;
 	}
 
 	/// <summary>
@@ -693,12 +925,16 @@ public partial class ReadWindow : Window
 		if (sender is not MenuItem selected)
 			return;
 
-		SetSingleChecked(selected, FitToScreenMenuItem, LeftToRightMenuItem, RightToLeftMenuItem);
-		Configs.ViewMode = selected == LeftToRightMenuItem
+		SetSingleChecked(selected, FitToScreenMenuItem, LeftToRightMenuItem, RightToLeftMenuItem, ScrollModeMenuItem);
+		var mode = selected == LeftToRightMenuItem
 			? ViewMode.LeftToRight
 			: selected == RightToLeftMenuItem
 				? ViewMode.RightToLeft
-				: ViewMode.Fit;
+			 : selected == ScrollModeMenuItem
+					? ViewMode.Scroll
+					: ViewMode.Single;
+
+		UpdateViewMode(mode);
 	}
 
 	/// <summary>
@@ -776,7 +1012,7 @@ public partial class ReadWindow : Window
 		}
 		catch (Exception ex)
 		{
-			SuppUi.Ok(this, $"{T("Failed to open book/file")}{Environment.NewLine}{ex.Message}", "Error");
+			SuppUi.Ok($"{T("Failed to open book/file")}{Environment.NewLine}{ex.Message}", "Error");
 		}
 	}
 
@@ -791,7 +1027,7 @@ public partial class ReadWindow : Window
 		}
 		catch (Exception ex)
 		{
-			SuppUi.Ok(this, $"{T("Failed to open folder")}{Environment.NewLine}{ex.Message}", "Error");
+			SuppUi.Ok($"{T("Failed to open folder")}{Environment.NewLine}{ex.Message}", "Error");
 		}
 	}
 
@@ -847,7 +1083,7 @@ public partial class ReadWindow : Window
 		}
 		catch (Exception ex)
 		{
-			SuppUi.Ok(this, $"{T("Failed to open book/file")}{Environment.NewLine}{ex.Message}", "Error");
+			SuppUi.Ok($"{T("Failed to open book/file")}{Environment.NewLine}{ex.Message}", "Error");
 		}
 	}
 
@@ -862,7 +1098,7 @@ public partial class ReadWindow : Window
 		}
 		catch (Exception ex)
 		{
-			SuppUi.Ok(this, $"{T("Failed to open folder")}{Environment.NewLine}{ex.Message}", "Error");
+			SuppUi.Ok($"{T("Failed to open folder")}{Environment.NewLine}{ex.Message}", "Error");
 		}
 	}
 
@@ -934,10 +1170,14 @@ public partial class ReadWindow : Window
 	/// </summary>
 	private void CloseBook()
 	{
+		if (_book != null)
+			Configs.SetHistory(_book.FullName, _book.CurrentPage);
+
 		_book?.Dispose();
 		_book = null;
 		_openedEntryName = string.Empty;
 		UpdateWindowTitle();
+		RenderBook();
 	}
 
 	/// <summary>
@@ -950,22 +1190,27 @@ public partial class ReadWindow : Window
 			var book = BookFactory.Open(path);
 			if (book == null)
 			{
-				SuppUi.Ok(this, T("Unsupported book format"), "Error");
+				SuppUi.Ok(T("Unsupported book format"), "Error");
 				return;
 			}
 
 			_book?.Dispose();
+			_zps.ResetZoom();
 			_book = book;
-			_book.ViewMode = Configs.ViewMode;
+			_book.ViewMode = _book.SupportsMultiPageModes ? Configs.ViewMode : ViewMode.Single;
 			_book.MovePage(Configs.GetHistory(path));
 			_book.PrepareImages();
 
 			_openedEntryName = _book.FileName;
 			UpdateWindowTitle();
+			RenderBook();
+
+			if (!_book.SupportsMultiPageModes)
+				UpdateViewMode(ViewMode.Single);
 		}
 		catch (Exception ex)
 		{
-			SuppUi.Ok(this, $"{T("Failed to open book/file")}{Environment.NewLine}{ex.Message}", "Error");
+			SuppUi.Ok($"{T("Failed to open book/file")}{Environment.NewLine}{ex.Message}", "Error");
 		}
 	}
 }

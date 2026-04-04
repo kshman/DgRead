@@ -11,7 +11,9 @@
         ExtendClientAreaChromeHints="NoChrome"
         ExtendClientAreaTitleBarHeightHint="-1"
         SystemDecorations="Full"
-        KeyDown="OnReadWindowKeyDown">
+        DragDrop.AllowDrop="True"
+        DragDrop.DragOver="OnWindowDragOver"
+        DragDrop.Drop="OnWindowDrop">
     <Window.Resources>
         <Geometry x:Key="MainMenuIconGeometry">M3,6H21V8H3V6M3,11H21V13H3V11M3,16H21V18H3V16Z</Geometry>
         <Geometry x:Key="ViewMenuIconGeometry">M4,2H18A2,2 0 0,1 20,4V18A2,2 0 0,1 18,20H4A2,2 0 0,1 2,18V4A2,2 0 0,1 4,2M4,4V18H18V4H4M8,6H16V8H8V6M8,10H16V16H8V10Z</Geometry>
@@ -42,6 +44,7 @@
                 <Button x:Name="ViewMenuButton"
                         Grid.Column="2"
                         MinWidth="40"
+                        Focusable="False"
                         Background="Transparent"
                         BorderThickness="0"
                         Click="OnViewMenuButtonClick">
@@ -57,6 +60,7 @@
                             <MenuItem x:Name="FitToScreenMenuItem" ToggleType="CheckBox" Click="OnViewDirectionClick" />
                             <MenuItem x:Name="LeftToRightMenuItem" ToggleType="CheckBox" Click="OnViewDirectionClick" />
                             <MenuItem x:Name="RightToLeftMenuItem" ToggleType="CheckBox" Click="OnViewDirectionClick" />
+                            <MenuItem x:Name="ScrollModeMenuItem" ToggleType="CheckBox" Click="OnViewDirectionClick" />
                             <Separator />
                             <MenuItem x:Name="ImageQualityLabel" IsEnabled="False" />
                             <MenuItem x:Name="FastQualityMenuItem" ToggleType="CheckBox" Click="OnImageQualityClick" />
@@ -89,6 +93,7 @@
                 <Button x:Name="MainMenuButton"
                         Grid.Column="3"
                         MinWidth="40"
+                        Focusable="False"
                         Background="Transparent"
                         BorderThickness="0"
                         Click="OnMainMenuButtonClick">
@@ -117,6 +122,7 @@
                 <Button x:Name="FullscreenButton"
                         Grid.Column="4"
                         Width="44"
+                        Focusable="False"
                         Background="Transparent"
                         BorderThickness="0"
                         Click="OnToggleFullscreenClick">
@@ -126,6 +132,7 @@
                 <Button x:Name="MinimizeButton"
                         Grid.Column="5"
                         Width="44"
+                        Focusable="False"
                         Background="Transparent"
                         BorderThickness="0"
                         Click="OnMinimizeClick">
@@ -135,6 +142,7 @@
                 <Button x:Name="MaximizeButton"
                         Grid.Column="6"
                         Width="44"
+                        Focusable="False"
                         Background="Transparent"
                         BorderThickness="0"
                         Click="OnMaximizeRestoreClick">
@@ -144,6 +152,7 @@
                 <Button x:Name="CloseButton"
                         Grid.Column="7"
                         Width="44"
+                        Focusable="False"
                         Background="Transparent"
                         BorderThickness="0"
                         Click="OnCloseClick">
@@ -152,14 +161,43 @@
             </Grid>
         </Border>
 
-        <Grid Grid.Row="1">
-            <Image Width="400"
-                   Height="300"
-                   Margin="20"
-                   HorizontalAlignment="Right"
-                   VerticalAlignment="Bottom"
-                   Stretch="Uniform"
-                   Source="avares://DgRead/Assets/logo.png" />
+        <Grid Grid.Row="1" Margin="2">
+            <ScrollViewer x:Name="ReaderScrollViewer"
+                          HorizontalScrollBarVisibility="Hidden"
+                          VerticalScrollBarVisibility="Hidden">
+                <Grid x:Name="ReaderRootGrid">
+                    <StackPanel x:Name="SpreadPanel"
+                                Orientation="Horizontal"
+                                HorizontalAlignment="Center"
+                                VerticalAlignment="Center"
+                                Spacing="6">
+                        <Image x:Name="LeftPageImage"
+                               Stretch="Uniform"
+                               MaxWidth="10000"
+                               MaxHeight="10000" />
+                        <Image x:Name="RightPageImage"
+                               Stretch="Uniform"
+                               MaxWidth="10000"
+                               MaxHeight="10000" />
+                    </StackPanel>
+
+                    <StackPanel x:Name="ScrollPagesPanel"
+                                IsVisible="False"
+                                Orientation="Vertical"
+                                Spacing="8"
+                                HorizontalAlignment="Center"
+                                VerticalAlignment="Top" />
+
+                    <Image x:Name="LogoImage"
+                           Width="400"
+                           Height="300"
+                           Margin="20"
+                           HorizontalAlignment="Right"
+                           VerticalAlignment="Bottom"
+                           Stretch="Uniform"
+                           Source="avares://DgRead/Assets/logo.png" />
+                </Grid>
+            </ScrollViewer>
         </Grid>
 
         <Border Grid.RowSpan="2" Height="6" VerticalAlignment="Top" Background="Transparent" PointerPressed="OnResizeTopPressed" />
