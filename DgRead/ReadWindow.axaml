@@ -7,6 +7,7 @@
         Title="DgRead"
         MinWidth="550"
         MinHeight="350"
+        Icon="avares://DgRead/Assets/DgRead-48.png"
         ExtendClientAreaToDecorationsHint="True"
         ExtendClientAreaChromeHints="NoChrome"
         ExtendClientAreaTitleBarHeightHint="-1"
