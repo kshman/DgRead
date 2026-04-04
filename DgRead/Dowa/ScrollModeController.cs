@@ -172,7 +172,7 @@ internal sealed class ScrollModeController
 		}, DispatcherPriority.Render);
 	}
 
-	public void RenderWindow(BookBase book, List<PageImage> ownedPages, Action<PageImage, Image> registerAnimation)
+ public void RenderWindow(BookBase book, Dictionary<int, PageImage> pageCache, Action<PageImage, Image> registerAnimation)
 	{
 		var first = Math.Max(0, book.CurrentPage - PreloadRadius);
 		var last = Math.Min(book.TotalPage - 1, book.CurrentPage + PreloadRadius);
@@ -181,9 +181,11 @@ internal sealed class ScrollModeController
 
 		for (var i = first; i <= last; i++)
 		{
-			var page = i == book.CurrentPage && book.PageLeft != null ? book.PageLeft : book.GetPageImage(i);
-			if (i != book.CurrentPage || book.PageLeft == null)
-				ownedPages.Add(page);
+           if (!pageCache.TryGetValue(i, out var page))
+			{
+				page = book.GetPageImage(i);
+				pageCache[i] = page;
+			}
 
 			var image = new Image
 			{
@@ -199,6 +201,19 @@ internal sealed class ScrollModeController
 			if (page.HasAnimation)
 				registerAnimation(page, image);
 		}
+
+		if (pageCache.Count == 0)
+			return;
+
+		var removeKeys = new List<int>();
+		foreach (var key in pageCache.Keys)
+		{
+			if (key < first || key > last)
+				removeKeys.Add(key);
+		}
+
+		foreach (var key in removeKeys)
+           pageCache.Remove(key);
 	}
 
 	public bool TryBeginDrag(PointerPressedEventArgs e)

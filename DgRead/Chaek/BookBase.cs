@@ -13,7 +13,10 @@ namespace DgRead.Chaek;
 public abstract class BookBase : IDisposable
 {
 	private readonly Dictionary<int, byte[]> _cache = [];
+	private readonly Dictionary<int, PageImage> _decodedCache = [];
+	private readonly LinkedList<int> _decodedLru = [];
 	private readonly Dictionary<int, PageInfo> _pageInfos = [];
+	private const int DecodedCacheMaxCount = 8;
 
 	private sealed record PageInfo(int Width, int Height, bool IsLandscape, bool HasAnimation);
 
@@ -152,8 +155,8 @@ public abstract class BookBase : IDisposable
 	/// </summary>
 	public void PrepareImages()
 	{
-		PageLeft?.Dispose();
-		PageRight?.Dispose();
+		PageLeft = null;
+		PageRight = null;
 		_nextStep = 1;
 		_prevStep = 1;
 
@@ -177,7 +180,6 @@ public abstract class BookBase : IDisposable
 					var secondInfo = GetPageInfo(CurrentPage + 1, secondPage);
 					if (secondInfo.HasAnimation || secondInfo.IsLandscape)
 					{
-						secondPage.Dispose();
 						secondPage = null;
 					}
 				}
@@ -288,10 +290,14 @@ public abstract class BookBase : IDisposable
 		foreach (var (_, value) in _cache)
 			value.AsSpan().Clear();
 		_cache.Clear();
+		foreach (var (_, page) in _decodedCache)
+			page.Dispose();
+		_decodedCache.Clear();
+		_decodedLru.Clear();
 		_pageInfos.Clear();
 
-		PageLeft?.Dispose();
-		PageRight?.Dispose();
+		PageLeft = null;
+		PageRight = null;
 	}
 
 	/// <summary>
@@ -302,11 +308,19 @@ public abstract class BookBase : IDisposable
 		if (pageNo < 0 || pageNo >= TotalPage)
 			return BookImageDecoder.Decode([]);
 
+		if (_decodedCache.TryGetValue(pageNo, out var cached))
+		{
+			TouchDecodedLru(pageNo);
+			return cached;
+		}
+
 		PageImage page;
 		if (!TryReadRaw(pageNo, out var raw) || raw == null || raw.Length == 0)
 			page = BookImageDecoder.Decode([]);
 		else
 			page = BookImageDecoder.Decode(raw);
+
+		CacheDecoded(pageNo, page);
 
 		CachePageInfo(pageNo, page);
 		return page;
@@ -351,18 +365,48 @@ public abstract class BookBase : IDisposable
 		if (_pageInfos.TryGetValue(pageNo, out var info))
 			return info;
 
-		PageImage? localPage = null;
 		var page = loadedPage;
 		if (page == null)
-		{
-			localPage = ReadPage(pageNo);
-			page = localPage;
-		}
+			page = ReadPage(pageNo);
 
 		info = CachePageInfo(pageNo, page);
-
-		localPage?.Dispose();
 		return info;
+	}
+
+	private void CacheDecoded(int pageNo, PageImage page)
+	{
+		if (_decodedCache.ContainsKey(pageNo))
+		{
+			TouchDecodedLru(pageNo);
+			return;
+		}
+
+		if (_decodedCache.Count >= DecodedCacheMaxCount && _decodedLru.First != null)
+		{
+			var evictKey = _decodedLru.First.Value;
+			_decodedLru.RemoveFirst();
+			if (_decodedCache.Remove(evictKey, out var evictPage))
+				evictPage.Dispose();
+		}
+
+		_decodedCache[pageNo] = page;
+		_decodedLru.AddLast(pageNo);
+	}
+
+	private void TouchDecodedLru(int pageNo)
+	{
+		var node = _decodedLru.Find(pageNo);
+		if (node == null)
+		{
+			_decodedLru.AddLast(pageNo);
+			return;
+		}
+
+		if (node == _decodedLru.Last)
+			return;
+
+		_decodedLru.Remove(node);
+		_decodedLru.AddLast(node);
 	}
 
 	private PageInfo CachePageInfo(int pageNo, PageImage page)

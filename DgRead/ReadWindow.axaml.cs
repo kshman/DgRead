@@ -27,12 +27,15 @@ public partial class ReadWindow : Window
 	private readonly DispatcherTimer _animationTimer = new() { Interval = TimeSpan.FromMilliseconds(33) };
 	private readonly DispatcherTimer _keyHoldTimer = new() { Interval = TimeSpan.FromMilliseconds(33) };
 	private readonly List<AnimationBinding> _animations = [];
-	private readonly List<PageImage> _scrollPageImages = [];
+    private readonly Dictionary<int, PageImage> _scrollPageCache = [];
 	private readonly ZpsController _zps;
 	private readonly ScrollModeController _scroll;
 	private readonly HashSet<Key> _pressedKeys = [];
 	private int _holdTick;
 	private bool _virtualizeBusy;
+	private bool _virtualizePending;
+	private DateTime _lastVirtualizeAtUtc;
+	private static readonly TimeSpan VirtualizeCooldown = TimeSpan.FromMilliseconds(120);
 
 	private sealed class AnimationBinding(PageImage page, Image target)
 	{
@@ -640,6 +643,26 @@ public partial class ReadWindow : Window
 
 	private void MaybeVirtualizeScroll()
 	{
+        if (!IsScrollMode() || _book == null)
+			return;
+
+		if (_virtualizeBusy || _virtualizePending)
+			return;
+
+		var nowUtc = DateTime.UtcNow;
+		var elapsed = nowUtc - _lastVirtualizeAtUtc;
+		var due = elapsed >= VirtualizeCooldown ? TimeSpan.Zero : VirtualizeCooldown - elapsed;
+		_virtualizePending = true;
+
+		DispatcherTimer.RunOnce(() =>
+		{
+			_virtualizePending = false;
+			ExecuteVirtualizeScroll();
+		}, due, DispatcherPriority.Background);
+	}
+
+	private void ExecuteVirtualizeScroll()
+	{
 		if (_virtualizeBusy || !IsScrollMode() || _book == null)
 			return;
 
@@ -662,6 +685,7 @@ public partial class ReadWindow : Window
 				_book.PrepareImages();
 				RenderBook();
 				UpdateWindowTitle();
+               _lastVirtualizeAtUtc = DateTime.UtcNow;
 			}
 		}
 		finally
@@ -902,7 +926,7 @@ public partial class ReadWindow : Window
 		{
 			SpreadPanel.IsVisible = false;
 			ScrollPagesPanel.IsVisible = true;
-			_scroll.RenderWindow(_book, _scrollPageImages, (page, image) => _animations.Add(new AnimationBinding(page, image)));
+            _scroll.RenderWindow(_book, _scrollPageCache, (page, image) => _animations.Add(new AnimationBinding(page, image)));
 			_scroll.RestoreAnchorByCenter();
 		}
 		else
@@ -962,10 +986,7 @@ public partial class ReadWindow : Window
 		LeftPageImage.Source = null;
 		RightPageImage.Source = null;
 		ScrollPagesPanel.Children.Clear();
-
-		foreach (var page in _scrollPageImages)
-			page.Dispose();
-		_scrollPageImages.Clear();
+		_scrollPageCache.Clear();
 	}
 
 	/// <summary>
