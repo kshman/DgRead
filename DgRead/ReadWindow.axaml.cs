@@ -35,14 +35,9 @@ public partial class ReadWindow : Window
 	private bool _virtualizeBusy;
 	private bool _virtualizePending;
 	private DateTime _lastVirtualizeAtUtc;
+	private DateTime _lastAnimationTickAtUtc;
 	private static readonly TimeSpan VirtualizeCooldown = TimeSpan.FromMilliseconds(120);
-
-	private sealed class AnimationBinding(PageImage page, Image target)
-	{
-		public PageImage Page { get; } = page;
-		public Image Target { get; } = target;
-		public int Remaining { get; set; } = 1;
-	}
+	private const int MinAnimationFrameDurationMs = 10;
 
 	/// <summary>
 	/// <see cref="ReadWindow"/> 인스턴스를 초기화합니다.
@@ -986,7 +981,10 @@ public partial class ReadWindow : Window
 			ReaderScrollViewer.Offset = default;
 
 		if (_animations.Count > 0)
+		{
+			_lastAnimationTickAtUtc = DateTime.UtcNow;
 			_animationTimer.Start();
+		}
 	}
 
 	private void OnAnimationTick(object? sender, EventArgs e)
@@ -997,15 +995,22 @@ public partial class ReadWindow : Window
 			return;
 		}
 
-		var intervalMs = (int)_animationTimer.Interval.TotalMilliseconds;
+		var nowUtc = DateTime.UtcNow;
+		var elapsedMs = (int)Math.Max(1, (nowUtc - _lastAnimationTickAtUtc).TotalMilliseconds);
+		_lastAnimationTickAtUtc = nowUtc;
+
 		foreach (var anim in _animations)
 		{
-			anim.Remaining -= intervalMs;
-			if (anim.Remaining > 0)
-				continue;
+			anim.Remaining -= elapsedMs;
+			var advanced = false;
+			while (anim.Remaining <= 0)
+			{
+				anim.Remaining += Math.Max(MinAnimationFrameDurationMs, anim.Page.Animate());
+				advanced = true;
+			}
 
-			anim.Remaining = Math.Max(20, anim.Page.Animate());
-			anim.Target.Source = anim.Page.GetBitmap();
+			if (advanced)
+				anim.Target.Source = anim.Page.GetBitmap();
 		}
 	}
 
@@ -1497,5 +1502,21 @@ public partial class ReadWindow : Window
 		{
 			SuppUi.Ok($"{T("Failed to open book/file")}{Environment.NewLine}{ex.Message}", "Error");
 		}
+	}
+
+	private sealed class AnimationBinding
+	{
+		public AnimationBinding(PageImage page, Image target)
+		{
+			Page = page;
+			Target = target;
+			Remaining = page.Frames is { Count: > 0 }
+				? Math.Max(MinAnimationFrameDurationMs, page.Frames[page.CurrentFrame].Duration)
+				: MinAnimationFrameDurationMs;
+		}
+
+		public PageImage Page { get; }
+		public Image Target { get; }
+		public int Remaining { get; set; }
 	}
 }

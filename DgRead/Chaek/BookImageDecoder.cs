@@ -1,7 +1,10 @@
 using System;
 using System.Collections.Generic;
 using System.IO;
+using System.Runtime.InteropServices;
+using Avalonia;
 using Avalonia.Media.Imaging;
+using Avalonia.Platform;
 using SixLabors.ImageSharp;
 using SixLabors.ImageSharp.PixelFormats;
 
@@ -111,8 +114,8 @@ internal static class BookImageDecoder
 		try
 		{
 			var metadata = image.Frames[frameIndex].Metadata.GetFormatMetadata(SixLabors.ImageSharp.Formats.Webp.WebpFormat.Instance);
-			var prop = metadata?.GetType().GetProperty("FrameDelay");
-			if (prop?.GetValue(metadata) is int delay && delay > 0)
+			var prop = metadata.GetType().GetProperty("FrameDelay");
+			if (prop?.GetValue(metadata) is int delay and > 0)
 				return delay;
 		}
 		catch
@@ -125,10 +128,25 @@ internal static class BookImageDecoder
 
 	private static Bitmap ToBitmap(Image<Rgba32> image)
 	{
-		using var ms = new MemoryStream();
-		image.SaveAsPng(ms);
-		ms.Position = 0;
-		return new Bitmap(ms);
+		var size = new PixelSize(image.Width, image.Height);
+		var bitmap = new WriteableBitmap(size, new Vector(96, 96), PixelFormat.Rgba8888, AlphaFormat.Unpremul);
+
+		var pixelBytes = new byte[image.Width * image.Height * 4];
+		image.CopyPixelDataTo(pixelBytes);
+
+		using var locked = bitmap.Lock();
+		var rowBytes = image.Width * 4;
+		if (locked.RowBytes == rowBytes)
+		{
+			Marshal.Copy(pixelBytes, 0, locked.Address, pixelBytes.Length);
+		}
+		else
+		{
+			for (var y = 0; y < image.Height; y++)
+				Marshal.Copy(pixelBytes, y * rowBytes, IntPtr.Add(locked.Address, y * locked.RowBytes), rowBytes);
+		}
+
+		return bitmap;
 	}
 
 	private static PageImage DecodeStatic(byte[] raw)
@@ -139,63 +157,40 @@ internal static class BookImageDecoder
 
 	private static bool TryDetectImageType(byte[] raw, out DetectedType type, out bool hasAnimation)
 	{
-		type = DetectedType.Unknown;
-		hasAnimation = false;
-
-		if (raw.Length < 4)
-			return false;
-
-		if (IsJpeg(raw))
+		switch (raw.Length)
 		{
-			type = DetectedType.Jpeg;
-			return true;
+			case < 4:
+				type = DetectedType.Unknown;
+				hasAnimation = false;
+				return false;
+			case >= 8 when raw is [0xFF, 0xD8, _, ..] && raw[^2] == 0xFF && raw[^1] == 0xD9:
+				type = DetectedType.Jpeg;
+				hasAnimation = false;
+				return true;
+			case >= 8 when raw[0] == 0x89 && raw[1] == 0x50 && raw[2] == 0x4E && raw[3] == 0x47:
+				type = DetectedType.Png;
+				hasAnimation = false;
+				return true;
+			case >= 16 when
+				raw[0] == 'R' && raw[1] == 'I' && raw[2] == 'F' && raw[3] == 'F' &&
+				raw[8] == 'W' && raw[9] == 'E' && raw[10] == 'B' && raw[11] == 'P':
+				type = DetectedType.Webp;
+				hasAnimation = HasWebpAnimation(raw);
+				return true;
+			case >= 6 when raw[0] == 'G' && raw[1] == 'I' && raw[2] == 'F':
+				type = DetectedType.Gif;
+				hasAnimation = HasGifAnimation(raw);
+				return true;
+			case >= 26 when raw[0] == 'B' && raw[1] == 'M':
+				type = DetectedType.Bmp;
+				hasAnimation = false;
+				return true;
+			default:
+				type = DetectedType.Unknown;
+				hasAnimation = false;
+				return false;
 		}
-
-		if (IsPng(raw))
-		{
-			type = DetectedType.Png;
-			return true;
-		}
-
-		if (IsGif(raw))
-		{
-			type = DetectedType.Gif;
-			hasAnimation = HasGifAnimation(raw);
-			return true;
-		}
-
-		if (IsWebp(raw))
-		{
-			type = DetectedType.Webp;
-			hasAnimation = HasWebpAnimation(raw);
-			return true;
-		}
-
-		if (IsBmp(raw))
-		{
-			type = DetectedType.Bmp;
-			return true;
-		}
-
-		return false;
 	}
-
-	private static bool IsJpeg(byte[] raw) =>
-		raw.Length >= 3 && raw[0] == 0xFF && raw[1] == 0xD8 && raw[^2] == 0xFF && raw[^1] == 0xD9;
-
-	private static bool IsPng(byte[] raw) =>
-		raw.Length >= 8 && raw[0] == 0x89 && raw[1] == 0x50 && raw[2] == 0x4E && raw[3] == 0x47;
-
-	private static bool IsGif(byte[] raw) =>
-		raw.Length >= 6 && raw[0] == 'G' && raw[1] == 'I' && raw[2] == 'F';
-
-	private static bool IsBmp(byte[] raw) =>
-		raw.Length >= 26 && raw[0] == 'B' && raw[1] == 'M';
-
-	private static bool IsWebp(byte[] raw) =>
-		raw.Length >= 16 &&
-		raw[0] == 'R' && raw[1] == 'I' && raw[2] == 'F' && raw[3] == 'F' &&
-		raw[8] == 'W' && raw[9] == 'E' && raw[10] == 'B' && raw[11] == 'P';
 
 	private static bool HasGifAnimation(byte[] raw)
 	{
@@ -280,6 +275,5 @@ internal static class BookImageDecoder
 		return false;
 	}
 
-	private static Bitmap CreateFallbackBitmap() =>
-		new Bitmap(new MemoryStream(sFallbackPng, writable: false));
+	private static Bitmap CreateFallbackBitmap() => new(new MemoryStream(sFallbackPng, writable: false));
 }

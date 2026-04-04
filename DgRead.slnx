@@ -1,4 +1,3 @@
 <Solution>
-  <Project Path="BenchmarkSuite1/BenchmarkSuite1.csproj" />
   <Project Path="DgRead/DgRead.csproj" />
 </Solution>
