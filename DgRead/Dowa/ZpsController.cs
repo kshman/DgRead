@@ -132,6 +132,12 @@ internal sealed class ZpsController
 		ApplyLayout(fitToViewport);
 	}
 
+	public void ZoomByFactor(double factor)
+	{
+		_zoomModeActive = true;
+		SetZoom(ZoomRatio * factor);
+	}
+
 	public bool HandleWheelAsZoom(PointerWheelEventArgs e)
 	{
 		var zoomWheel = IsZoomed || e.KeyModifiers.HasFlag(KeyModifiers.Shift) || _isRightMouseDown;

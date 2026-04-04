@@ -28,6 +28,11 @@ public abstract class BookBase : IDisposable
 	public string FileName { get; protected set; } = string.Empty;
 
 	/// <summary>
+	/// 확장자를 제외한 표시 이름입니다.
+	/// </summary>
+	public string DisplayNameWithoutExtension => Path.GetFileNameWithoutExtension(FileName);
+
+	/// <summary>
 	/// 현재 페이지(0 기반)입니다.
 	/// </summary>
 	public int CurrentPage { get; protected set; }

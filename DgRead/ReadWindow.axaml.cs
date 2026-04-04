@@ -13,6 +13,7 @@ using Avalonia.Platform.Storage;
 using Avalonia.Styling;
 using Avalonia.Threading;
 using Avalonia.VisualTree;
+using DgRead.Dowa;
 
 namespace DgRead;
 
@@ -24,9 +25,14 @@ public partial class ReadWindow : Window
 	private string _openedEntryName = string.Empty;
 	private BookBase? _book;
 	private readonly DispatcherTimer _animationTimer = new() { Interval = TimeSpan.FromMilliseconds(33) };
+	private readonly DispatcherTimer _keyHoldTimer = new() { Interval = TimeSpan.FromMilliseconds(33) };
 	private readonly List<AnimationBinding> _animations = [];
 	private readonly List<PageImage> _scrollPageImages = [];
 	private readonly ZpsController _zps;
+	private readonly ScrollModeController _scroll;
+	private readonly HashSet<Key> _pressedKeys = [];
+	private int _holdTick;
+	private bool _virtualizeBusy;
 
 	private sealed class AnimationBinding(PageImage page, Image target)
 	{
@@ -45,6 +51,7 @@ public partial class ReadWindow : Window
 		MinHeight = 350;
 
 		_zps = new ZpsController(ReaderScrollViewer, LeftPageImage, RightPageImage);
+		_scroll = new ScrollModeController(ReaderScrollViewer, ScrollPagesPanel);
 
 		ApplyLocalizedTexts();
 		ApplyViewMenuDefaults();
@@ -64,14 +71,20 @@ public partial class ReadWindow : Window
 
 		Closing += OnClosing;
 		Closed += OnClosed;
+		Deactivated += (_, _) => _pressedKeys.Clear();
 		PropertyChanged += OnWindowPropertyChanged;
 		_animationTimer.Tick += OnAnimationTick;
+		_keyHoldTimer.Tick += OnKeyHoldTick;
 		AddHandler(DragDrop.DragOverEvent, OnWindowDragOver);
 		AddHandler(DragDrop.DropEvent, OnWindowDrop);
 		AddHandler(KeyDownEvent, OnReadWindowKeyDown, RoutingStrategies.Tunnel, true);
+		AddHandler(KeyUpEvent, OnReadWindowKeyUp, RoutingStrategies.Tunnel, true);
 
 		_zps.Attach();
 		ReaderScrollViewer.AddHandler(InputElement.PointerWheelChangedEvent, OnReaderPointerWheelPreview, RoutingStrategies.Tunnel, true);
+		ReaderScrollViewer.AddHandler(InputElement.PointerPressedEvent, OnReaderPointerPressedPreview, RoutingStrategies.Tunnel, true);
+		ReaderScrollViewer.AddHandler(InputElement.PointerReleasedEvent, OnReaderPointerReleasedPreview, RoutingStrategies.Tunnel, true);
+		ReaderScrollViewer.AddHandler(InputElement.PointerMovedEvent, OnReaderPointerMovedPreview, RoutingStrategies.Tunnel, true);
 
 		UpdateTitleBarState();
 		RenderBook();
@@ -261,14 +274,45 @@ public partial class ReadWindow : Window
 		if (_book == null)
 			return;
 
-		if (_zps.HandleWheelAsZoom(e))
+		if (IsScrollMode())
+		{
+            Dispatcher.UIThread.Post(() =>
+			{
+				SyncScrollCurrentPage();
+				MaybeVirtualizeScroll();
+			});
 			return;
+		}
 
-		if (_book.ViewMode == ViewMode.Scroll)
+		if (_zps.HandleWheelAsZoom(e))
 			return;
 
 		PageControl(e.Delta.Y < 0 ? BookControl.Next : BookControl.Previous);
 		e.Handled = true;
+	}
+
+	private void OnReaderPointerPressedPreview(object? sender, PointerPressedEventArgs e)
+	{
+		if (!IsScrollMode())
+			return;
+		_scroll.TryBeginDrag(e);
+	}
+
+	private void OnReaderPointerReleasedPreview(object? sender, PointerReleasedEventArgs e)
+	{
+		_scroll.TryEndDrag(e);
+	}
+
+	private void OnReaderPointerMovedPreview(object? sender, PointerEventArgs e)
+	{
+		if (!IsScrollMode())
+			return;
+
+		if (_scroll.TryDrag(e))
+        {
+			SyncScrollCurrentPage();
+			MaybeVirtualizeScroll();
+       }
 	}
 
 	/// <summary>
@@ -276,9 +320,28 @@ public partial class ReadWindow : Window
 	/// </summary>
 	private void OnReadWindowKeyDown(object? sender, KeyEventArgs e)
 	{
+		if (IsModifierOnly(e.Key))
+			return;
+
+		if (!_pressedKeys.Add(e.Key))
+		{
+			e.Handled = true;
+			return;
+		}
+
+		if (ShouldUseContinuousInput())
+			EnsureKeyHoldTimer();
+
 		if (e is { KeyModifiers: KeyModifiers.Alt, Key: Key.Enter })
 		{
 			ToggleFullscreen();
+			e.Handled = true;
+			return;
+		}
+
+		if (IsScrollMode() && _scroll.TryHandleWidthKey(e.Key))
+		{
+			RenderBook();
 			e.Handled = true;
 			return;
 		}
@@ -321,6 +384,8 @@ public partial class ReadWindow : Window
 			// 페이지
 			case Key.Up:
 			case Key.OemComma:
+				if (IsScrollMode())
+					break;
 				if (!_zps.TryPanByKeyboard(0, -80))
 					PageControl(BookControl.SeekMinusOne);
 				break;
@@ -328,11 +393,15 @@ public partial class ReadWindow : Window
 			case Key.Down:
 			case Key.OemPeriod:
 			case Key.Oem2:
+				if (IsScrollMode())
+					break;
 				if (!_zps.TryPanByKeyboard(0, 80))
 					PageControl(BookControl.SeekPlusOne);
 				break;
 
 			case Key.Left:
+				if (IsScrollMode())
+					break;
 				if (!_zps.TryPanByKeyboard(-80, 0))
 					PageControl(e.KeyModifiers.HasFlag(KeyModifiers.Shift) ? BookControl.SeekMinusOne : BookControl.Previous);
 				break;
@@ -340,6 +409,8 @@ public partial class ReadWindow : Window
 			case Key.Right:
 			case Key.NumPad0:
 			case Key.Space:
+				if (IsScrollMode() && e.Key == Key.Right)
+					break;
 				if (e.Key == Key.Right && _zps.TryPanByKeyboard(80, 0))
 					break;
 				PageControl(e.KeyModifiers.HasFlag(KeyModifiers.Shift) ? BookControl.SeekPlusOne : BookControl.Next);
@@ -354,6 +425,13 @@ public partial class ReadWindow : Window
 				break;
 
 			case Key.PageUp:
+				if (IsScrollMode())
+				{
+					ReaderScrollViewer.Offset = _scroll.ClampOffset(new Vector(ReaderScrollViewer.Offset.X, ReaderScrollViewer.Offset.Y - ReaderScrollViewer.Viewport.Height * 0.9));
+                    SyncScrollCurrentPage();
+					MaybeVirtualizeScroll();
+					break;
+				}
 				if (_zps.IsZoomed)
 					PageControl(IsTwoPageMode() ? BookControl.Previous : BookControl.SeekMinusOne);
 				else if (e.KeyModifiers.HasFlag(KeyModifiers.Control))
@@ -364,6 +442,13 @@ public partial class ReadWindow : Window
 
 			case Key.PageDown:
 			case Key.Back:
+				if (IsScrollMode() && e.Key == Key.PageDown)
+				{
+					ReaderScrollViewer.Offset = _scroll.ClampOffset(new Vector(ReaderScrollViewer.Offset.X, ReaderScrollViewer.Offset.Y + ReaderScrollViewer.Viewport.Height * 0.9));
+                    SyncScrollCurrentPage();
+					MaybeVirtualizeScroll();
+					break;
+				}
 				if (_zps.IsZoomed && e.Key == Key.PageDown)
 					PageControl(IsTwoPageMode() ? BookControl.Next : BookControl.SeekPlusOne);
 				else if (e.Key == Key.PageDown && e.KeyModifiers.HasFlag(KeyModifiers.Control))
@@ -471,6 +556,132 @@ public partial class ReadWindow : Window
 		e.Handled = handled;
 	}
 
+	private void OnReadWindowKeyUp(object? sender, KeyEventArgs e)
+	{
+		_pressedKeys.Remove(e.Key);
+		if (_pressedKeys.Count == 0)
+			_keyHoldTimer.Stop();
+	}
+
+	private void OnKeyHoldTick(object? sender, EventArgs e)
+	{
+		if (_book == null || _pressedKeys.Count == 0)
+		{
+			_keyHoldTimer.Stop();
+			return;
+		}
+
+		_holdTick++;
+
+		if (IsScrollMode())
+		{
+			if ((_pressedKeys.Contains(Key.Add) || _pressedKeys.Contains(Key.OemPlus)) && (_holdTick % 3 == 0))
+			{
+				if (_scroll.TryHandleWidthKey(Key.Add))
+					RenderBook();
+			}
+			if ((_pressedKeys.Contains(Key.Subtract) || _pressedKeys.Contains(Key.OemMinus)) && (_holdTick % 3 == 0))
+			{
+				if (_scroll.TryHandleWidthKey(Key.Subtract))
+					RenderBook();
+			}
+
+			var dy = 0.0;
+			var dx = 0.0;
+			if (_pressedKeys.Contains(Key.Up)) dy -= 24;
+			if (_pressedKeys.Contains(Key.Down)) dy += 24;
+			if (_pressedKeys.Contains(Key.Left)) dx -= 24;
+			if (_pressedKeys.Contains(Key.Right)) dx += 24;
+			if (dx != 0 || dy != 0)
+			{
+				ReaderScrollViewer.Offset = _scroll.ClampOffset(ReaderScrollViewer.Offset + new Vector(dx, dy));
+                SyncScrollCurrentPage();
+				MaybeVirtualizeScroll();
+			}
+
+			return;
+		}
+
+		if (_zps.IsZoomed)
+		{
+			if ((_pressedKeys.Contains(Key.Add) || _pressedKeys.Contains(Key.OemPlus)) && (_holdTick % 3 == 0))
+				_zps.ZoomByFactor(1.05);
+			if ((_pressedKeys.Contains(Key.Subtract) || _pressedKeys.Contains(Key.OemMinus)) && (_holdTick % 3 == 0))
+				_zps.ZoomByFactor(1 / 1.05);
+
+			var dy = 0.0;
+			var dx = 0.0;
+			if (_pressedKeys.Contains(Key.Up)) dy -= 20;
+			if (_pressedKeys.Contains(Key.Down)) dy += 20;
+			if (_pressedKeys.Contains(Key.Left)) dx -= 20;
+			if (_pressedKeys.Contains(Key.Right)) dx += 20;
+			if (dx != 0 || dy != 0)
+				_zps.TryPanByKeyboard(dx, dy);
+		}
+	}
+
+	private void EnsureKeyHoldTimer()
+	{
+		if (!_keyHoldTimer.IsEnabled)
+		{
+			_holdTick = 0;
+			_keyHoldTimer.Start();
+		}
+	}
+
+	private bool IsModifierOnly(Key key) =>
+		key is Key.LeftCtrl or Key.RightCtrl or Key.LeftAlt or Key.RightAlt or Key.LeftShift or Key.RightShift;
+
+	private bool ShouldUseContinuousInput() =>
+		(_book != null && IsScrollMode()) || _zps.IsZoomed;
+
+	private bool IsScrollMode() =>
+		_book?.ViewMode == ViewMode.Scroll;
+
+	private void MaybeVirtualizeScroll()
+	{
+		if (_virtualizeBusy || !IsScrollMode() || _book == null)
+			return;
+
+		SyncScrollCurrentPage();
+
+		var dir = _scroll.GetVirtualizeDirection();
+		if (dir == 0)
+			return;
+
+		if (dir > 0 && _book.CurrentPage >= _book.TotalPage - 1)
+			return;
+		if (dir < 0 && _book.CurrentPage <= 0)
+			return;
+
+		_virtualizeBusy = true;
+		try
+		{
+			if (_book.MovePage(_book.CurrentPage + dir))
+			{
+				_book.PrepareImages();
+				RenderBook();
+				UpdateWindowTitle();
+			}
+		}
+		finally
+		{
+			_virtualizeBusy = false;
+		}
+	}
+
+	private void SyncScrollCurrentPage()
+	{
+		if (!IsScrollMode() || _book == null)
+			return;
+
+		var centerPage = _scroll.GetCenterPageIndex(_book.CurrentPage);
+		if (!_book.MovePage(centerPage))
+			return;
+
+		UpdateWindowTitle();
+	}
+
 	/// <summary>
 	/// 타이틀 바에서 마우스 누름 이벤트를 처리합니다.
 	/// </summary>
@@ -560,7 +771,9 @@ public partial class ReadWindow : Window
 		try
 		{
 			_animationTimer.Stop();
+			_keyHoldTimer.Stop();
 			_animationTimer.Tick -= OnAnimationTick;
+			_keyHoldTimer.Tick -= OnKeyHoldTick;
 			ClearRenderedPages();
 			_book?.Dispose();
 			_book = null;
@@ -578,12 +791,17 @@ public partial class ReadWindow : Window
 	private void UpdateWindowTitle()
 	{
 		var appTitle = T("DgRead");
-		var noBook = T("[No book opened]");
-		var title = string.IsNullOrWhiteSpace(_openedEntryName)
-			? noBook
-			: $"{_openedEntryName} - {appTitle}";
+		var title = T("[No book opened]");
+		if (_book != null)
+		{
+            title = $"[{_book.CurrentPage + 1}/{_book.TotalPage}] {_book.DisplayNameWithoutExtension}";
+		}
+		else if (!string.IsNullOrWhiteSpace(_openedEntryName))
+		{
+			title = _openedEntryName;
+		}
 		TitleTextBlock.Text = title;
-		Title = title;
+		Title = $"{title} - {appTitle}";
 	}
 
 	/// <summary>
@@ -654,12 +872,16 @@ public partial class ReadWindow : Window
 	/// </summary>
 	private void RenderBook()
 	{
+		var keepScrollAnchor = _book?.ViewMode == ViewMode.Scroll;
+		if (keepScrollAnchor)
+			_scroll.CaptureAnchorByCenter();
+
 		ClearRenderedPages();
 
 		if (_book == null)
 		{
 			_zps.ResetZoom();
-         _zps.SetTwoPageMode(false);
+			_zps.SetTwoPageMode(false);
 			LogoImage.IsVisible = true;
 			SpreadPanel.IsVisible = false;
 			ScrollPagesPanel.IsVisible = false;
@@ -680,25 +902,8 @@ public partial class ReadWindow : Window
 		{
 			SpreadPanel.IsVisible = false;
 			ScrollPagesPanel.IsVisible = true;
-
-			for (var i = 0; i < _book.TotalPage; i++)
-			{
-				var page = _book.GetPageImage(i);
-				_scrollPageImages.Add(page);
-
-				var image = new Image
-				{
-					Source = page.GetBitmap(),
-					Stretch = Stretch.Uniform,
-					HorizontalAlignment = Avalonia.Layout.HorizontalAlignment.Center,
-					MaxWidth = 10000,
-					MaxHeight = 10000
-				};
-				ScrollPagesPanel.Children.Add(image);
-
-				if (page.HasAnimation)
-					_animations.Add(new AnimationBinding(page, image));
-			}
+			_scroll.RenderWindow(_book, _scrollPageImages, (page, image) => _animations.Add(new AnimationBinding(page, image)));
+			_scroll.RestoreAnchorByCenter();
 		}
 		else
 		{
@@ -794,6 +999,7 @@ public partial class ReadWindow : Window
 		_zps.ResetZoom();
 		_book.PrepareImages();
 		RenderBook();
+		UpdateWindowTitle();
 		Configs.SetHistory(_book.FullName, _book.CurrentPage);
 	}
 
@@ -866,6 +1072,7 @@ public partial class ReadWindow : Window
 			_book.ViewMode = mode;
 			_book.PrepareImages();
 			RenderBook();
+			UpdateWindowTitle();
 		}
 
 		SetSingleChecked(mode switch

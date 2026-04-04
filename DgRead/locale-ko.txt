@@ -28,7 +28,7 @@
 "Minimize" = "최소화"
 "Maximize / Restore" = "최대화 / 복원"
 "Close" = "닫기"
-"DgRead" = "듯 책 읽기"
+"DgRead" = "득읽기"
 "[No book opened]" = "[열린 책이 없어요]"
 "Failed to open book/file" = "책/파일을 열지 못했습니다"
 "Failed to open folder" = "폴더를 열지 못했습니다"
