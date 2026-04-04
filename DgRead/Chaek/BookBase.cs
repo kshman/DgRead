@@ -33,7 +33,7 @@ public abstract class BookBase : IDisposable
 	/// <summary>
 	/// 확장자를 제외한 표시 이름입니다.
 	/// </summary>
-	public string DisplayNameWithoutExtension => Path.GetFileNameWithoutExtension(FileName);
+	public virtual string DisplayName => FileName;
 
 	/// <summary>
 	/// 현재 페이지(0 기반)입니다.
@@ -138,6 +138,11 @@ public abstract class BookBase : IDisposable
 		BookDirection.Previous => FindNextFile(BookDirection.Previous) ?? FindNextFile(BookDirection.Next),
 		_ => null
 	};
+
+	/// <summary>
+	/// 임의의 파일을 찾습니다.
+	/// </summary>
+	public virtual string? FindRandomFile() => null;
 
 	/// <summary>
 	/// 지정 페이지 엔트리 이름을 반환합니다.

@@ -48,6 +48,7 @@ internal static class Configs
 
 	private static readonly List<MoveInfo> sMoves = [];
 	private static readonly List<BookmarkInfo> sBookmarks = [];
+	private static readonly List<string> sRandoms = [];
 
 	private static readonly Dictionary<string, string> sStorage = [];
 	#endregion
@@ -533,6 +534,16 @@ internal static class Configs
 			Debug.WriteLine($"최근 파일 쓰기 실패: \"{filename}\":{page}");
 			Debug.WriteLine($" >> {e.Message}");
 		}
+	}
+
+	public static bool TestCanTakeRandom(string filename)
+	{
+		var index = sRandoms.FindIndex(f => f == filename);
+		if (index >= 0)
+			return false;
+
+		sRandoms.Add(filename);
+		return true;
 	}
 	#endregion
 

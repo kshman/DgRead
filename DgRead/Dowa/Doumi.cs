@@ -40,6 +40,43 @@ internal static class Doumi
 	}
 
 	/// <summary>
+	/// 가중치 기반으로 컬렉션에서 임의 항목을 선택합니다. 가중치는 음수 또는 0인 항목은 후보에서 제외됩니다.
+	/// </summary>
+	/// <typeparam name="T">항목 타입입니다.</typeparam>
+	/// <param name="items">항목 열거입니다.</param>
+	/// <param name="weightSelector">각 항목에 대한 가중치를 반환하는 함수입니다. 가중치는 0보다 큰 실수여야 합니다.</param>
+	/// <param name="rnd">난수 생성기(선택). null이면 Random.Shared를 사용합니다.</param>
+	/// <returns>선택된 항목 또는 후보가 없으면 default(T)를 반환합니다.</returns>
+	public static T? RandomByWeight<T>(IEnumerable<T> items, System.Func<T, double> weightSelector, System.Random? rnd = null)
+	{
+		var list = new List<(T Item, double Weight)>();
+		foreach (var it in items)
+		{
+			double w;
+			try { w = weightSelector(it); }
+			catch { continue; }
+			if (double.IsNaN(w) || double.IsInfinity(w) || w <= 0.0) continue;
+			list.Add((it, w));
+		}
+
+		if (list.Count == 0) return default;
+
+		double sum = 0;
+		foreach (var (_, w) in list) sum += w;
+
+		var rng = rnd ?? System.Random.Shared;
+		var r = rng.NextDouble() * sum;
+		var acc = 0.0;
+		foreach (var (item, w) in list)
+		{
+			acc += w;
+			if (r <= acc) return item;
+		}
+
+		return list[^1].Item;
+	}
+
+	/// <summary>
 	/// 문자열 비교
 	/// </summary>
 	/// <param name="s1">비교할 첫 번째 문자열입니다.</param>

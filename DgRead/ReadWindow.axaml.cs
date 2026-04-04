@@ -13,7 +13,6 @@ using Avalonia.Platform.Storage;
 using Avalonia.Styling;
 using Avalonia.Threading;
 using Avalonia.VisualTree;
-using DgRead.Dowa;
 
 namespace DgRead;
 
@@ -27,10 +26,11 @@ public partial class ReadWindow : Window
 	private readonly DispatcherTimer _animationTimer = new() { Interval = TimeSpan.FromMilliseconds(33) };
 	private readonly DispatcherTimer _keyHoldTimer = new() { Interval = TimeSpan.FromMilliseconds(33) };
 	private readonly List<AnimationBinding> _animations = [];
-    private readonly Dictionary<int, PageImage> _scrollPageCache = [];
+	private readonly Dictionary<int, PageImage> _scrollPageCache = [];
 	private readonly ZpsController _zps;
 	private readonly ScrollModeController _scroll;
 	private readonly HashSet<Key> _pressedKeys = [];
+	private readonly PageWindow _pageWindow;
 	private int _holdTick;
 	private bool _virtualizeBusy;
 	private bool _virtualizePending;
@@ -55,6 +55,7 @@ public partial class ReadWindow : Window
 
 		_zps = new ZpsController(ReaderScrollViewer, LeftPageImage, RightPageImage);
 		_scroll = new ScrollModeController(ReaderScrollViewer, ScrollPagesPanel);
+		_pageWindow = new PageWindow();
 
 		ApplyLocalizedTexts();
 		ApplyViewMenuDefaults();
@@ -78,6 +79,7 @@ public partial class ReadWindow : Window
 		PropertyChanged += OnWindowPropertyChanged;
 		_animationTimer.Tick += OnAnimationTick;
 		_keyHoldTimer.Tick += OnKeyHoldTick;
+
 		AddHandler(DragDrop.DragOverEvent, OnWindowDragOver);
 		AddHandler(DragDrop.DropEvent, OnWindowDrop);
 		AddHandler(KeyDownEvent, OnReadWindowKeyDown, RoutingStrategies.Tunnel, true);
@@ -99,7 +101,6 @@ public partial class ReadWindow : Window
 	/// </summary>
 	private void ApplyLocalizedTexts()
 	{
-		StretchViewMenuItem.Header = T("Stretch View");
 		ViewDirectionLabel.Header = T("Viewing Direction");
 		FitToScreenMenuItem.Header = T("Fit to Screen");
 		LeftToRightMenuItem.Header = T("Left to Right");
@@ -146,6 +147,7 @@ public partial class ReadWindow : Window
 		CenterAlignMenuItem.IsChecked = true;
 		MarginNumericUpDown.Value = 100;
 		UpdateThemeMenuChecks(WindowTheme.Default);
+		UpdateViewModeIcon(ViewMode.Single);
 	}
 
 	/// <summary>
@@ -153,9 +155,6 @@ public partial class ReadWindow : Window
 	/// </summary>
 	private void ApplyConfigToViewMenu()
 	{
-		StretchViewMenuItem.IsChecked = true;
-		StretchViewMenuItem.IsEnabled = false;
-
 		SetSingleChecked(Configs.ViewMode switch
 		{
 			ViewMode.LeftToRight => LeftToRightMenuItem,
@@ -279,7 +278,7 @@ public partial class ReadWindow : Window
 
 		if (IsScrollMode())
 		{
-            Dispatcher.UIThread.Post(() =>
+			Dispatcher.UIThread.Post(() =>
 			{
 				SyncScrollCurrentPage();
 				MaybeVirtualizeScroll();
@@ -312,10 +311,10 @@ public partial class ReadWindow : Window
 			return;
 
 		if (_scroll.TryDrag(e))
-        {
+		{
 			SyncScrollCurrentPage();
 			MaybeVirtualizeScroll();
-       }
+		}
 	}
 
 	/// <summary>
@@ -384,9 +383,8 @@ public partial class ReadWindow : Window
 					handled = false;
 				break;
 
-			// 페이지
+			// 페이지 + 스크롤 + ZPS
 			case Key.Up:
-			case Key.OemComma:
 				if (IsScrollMode())
 					break;
 				if (!_zps.TryPanByKeyboard(0, -80))
@@ -394,8 +392,6 @@ public partial class ReadWindow : Window
 				break;
 
 			case Key.Down:
-			case Key.OemPeriod:
-			case Key.Oem2:
 				if (IsScrollMode())
 					break;
 				if (!_zps.TryPanByKeyboard(0, 80))
@@ -410,12 +406,24 @@ public partial class ReadWindow : Window
 				break;
 
 			case Key.Right:
-			case Key.NumPad0:
-			case Key.Space:
 				if (IsScrollMode() && e.Key == Key.Right)
 					break;
-				if (e.Key == Key.Right && _zps.TryPanByKeyboard(80, 0))
-					break;
+				if (!_zps.TryPanByKeyboard(80, 0))
+					PageControl(e.KeyModifiers.HasFlag(KeyModifiers.Shift) ? BookControl.SeekPlusOne : BookControl.Next);
+				break;
+
+			// 페이지
+			case Key.OemComma:
+				PageControl(BookControl.SeekMinusOne);
+				break;
+
+			case Key.OemPeriod:
+			case Key.Oem2:
+				PageControl(BookControl.SeekPlusOne);
+				break;
+
+			case Key.NumPad0:
+			case Key.Space:
 				PageControl(e.KeyModifiers.HasFlag(KeyModifiers.Shift) ? BookControl.SeekPlusOne : BookControl.Next);
 				break;
 
@@ -431,7 +439,7 @@ public partial class ReadWindow : Window
 				if (IsScrollMode())
 				{
 					ReaderScrollViewer.Offset = _scroll.ClampOffset(new Vector(ReaderScrollViewer.Offset.X, ReaderScrollViewer.Offset.Y - ReaderScrollViewer.Viewport.Height * 0.9));
-                    SyncScrollCurrentPage();
+					SyncScrollCurrentPage();
 					MaybeVirtualizeScroll();
 					break;
 				}
@@ -444,11 +452,10 @@ public partial class ReadWindow : Window
 				break;
 
 			case Key.PageDown:
-			case Key.Back:
 				if (IsScrollMode() && e.Key == Key.PageDown)
 				{
 					ReaderScrollViewer.Offset = _scroll.ClampOffset(new Vector(ReaderScrollViewer.Offset.X, ReaderScrollViewer.Offset.Y + ReaderScrollViewer.Viewport.Height * 0.9));
-                    SyncScrollCurrentPage();
+					SyncScrollCurrentPage();
 					MaybeVirtualizeScroll();
 					break;
 				}
@@ -460,25 +467,29 @@ public partial class ReadWindow : Window
 					PageControl(BookControl.SeekNext10);
 				break;
 
+			case Key.Back:
+				PageControl(BookControl.SeekNext10);
+				break;
+
 			case Key.Enter:
-				PageControl(BookControl.Select);
+				_ = OpenPageWindowSafeAsync();
 				break;
 
 			// 보기
 			case Key.Oem3:
-				UpdateViewMode(ViewMode.Single);
+				UpdateViewMode(ViewMode.Scroll);
 				break;
 
 			case Key.D1:
-				UpdateViewMode(ViewMode.LeftToRight);
+				UpdateViewMode(ViewMode.Single);
 				break;
 
 			case Key.D2:
-				UpdateViewMode(ViewMode.RightToLeft);
+				UpdateViewMode(ViewMode.LeftToRight);
 				break;
 
 			case Key.D3:
-				UpdateViewMode(ViewMode.Scroll);
+				UpdateViewMode(ViewMode.RightToLeft);
 				break;
 
 			case Key.Tab:
@@ -512,6 +523,11 @@ public partial class ReadWindow : Window
 			case Key.BrowserForward:
 			case Key.OemCloseBrackets:
 				OpenNextBook();
+				break;
+
+			case Key.OemPipe:
+			case Key.OemBackslash:  // 이건 뭐지
+				OpenRandomBook();
 				break;
 
 			case Key.Insert:
@@ -598,7 +614,7 @@ public partial class ReadWindow : Window
 			if (dx != 0 || dy != 0)
 			{
 				ReaderScrollViewer.Offset = _scroll.ClampOffset(ReaderScrollViewer.Offset + new Vector(dx, dy));
-                SyncScrollCurrentPage();
+				SyncScrollCurrentPage();
 				MaybeVirtualizeScroll();
 			}
 
@@ -641,9 +657,27 @@ public partial class ReadWindow : Window
 	private bool IsScrollMode() =>
 		_book?.ViewMode == ViewMode.Scroll;
 
+	private async Task OpenPageWindowSafeAsync()
+	{
+		var openedBook = _book;
+		if (openedBook == null)
+			return;
+
+		var selected = await _pageWindow.ShowForPageAsync(this, openedBook.CurrentPage);
+		if (selected < 0 || _book != openedBook)
+			return;
+
+		openedBook.MovePage(selected);
+		_zps.ResetZoom();
+		openedBook.PrepareImages();
+		RenderBook();
+		UpdateWindowTitle();
+		Configs.SetHistory(openedBook.FullName, openedBook.CurrentPage);
+	}
+
 	private void MaybeVirtualizeScroll()
 	{
-        if (!IsScrollMode() || _book == null)
+		if (!IsScrollMode() || _book == null)
 			return;
 
 		if (_virtualizeBusy || _virtualizePending)
@@ -685,7 +719,7 @@ public partial class ReadWindow : Window
 				_book.PrepareImages();
 				RenderBook();
 				UpdateWindowTitle();
-               _lastVirtualizeAtUtc = DateTime.UtcNow;
+				_lastVirtualizeAtUtc = DateTime.UtcNow;
 			}
 		}
 		finally
@@ -794,6 +828,7 @@ public partial class ReadWindow : Window
 	{
 		try
 		{
+			_pageWindow.DisposeDialog();
 			_animationTimer.Stop();
 			_keyHoldTimer.Stop();
 			_animationTimer.Tick -= OnAnimationTick;
@@ -815,15 +850,11 @@ public partial class ReadWindow : Window
 	private void UpdateWindowTitle()
 	{
 		var appTitle = T("DgRead");
-		var title = T("[No book opened]");
-		if (_book != null)
-		{
-            title = $"[{_book.CurrentPage + 1}/{_book.TotalPage}] {_book.DisplayNameWithoutExtension}";
-		}
-		else if (!string.IsNullOrWhiteSpace(_openedEntryName))
-		{
-			title = _openedEntryName;
-		}
+		var title = (_book != null) ?
+			$"[{_book.CurrentPage + 1}/{_book.TotalPage}] {_book.DisplayName}" :
+			(!string.IsNullOrWhiteSpace(_openedEntryName)) ?
+				_openedEntryName :
+				T("[No book opened]");
 		TitleTextBlock.Text = title;
 		Title = $"{title} - {appTitle}";
 	}
@@ -926,7 +957,7 @@ public partial class ReadWindow : Window
 		{
 			SpreadPanel.IsVisible = false;
 			ScrollPagesPanel.IsVisible = true;
-            _scroll.RenderWindow(_book, _scrollPageCache, (page, image) => _animations.Add(new AnimationBinding(page, image)));
+			_scroll.RenderWindow(_book, _scrollPageCache, (page, image) => _animations.Add(new AnimationBinding(page, image)));
 			_scroll.RestoreAnchorByCenter();
 		}
 		else
@@ -1050,6 +1081,16 @@ public partial class ReadWindow : Window
 			OpenBookByPath(next);
 	}
 
+	private void OpenRandomBook()
+	{
+		if (_book == null)
+			return;
+
+		var next = _book.FindRandomFile();
+		if (!string.IsNullOrWhiteSpace(next))
+			OpenBookByPath(next);
+	}
+
 	/// <summary>
 	/// 현재 책을 이동하는 흐름을 시작합니다.
 	/// </summary>
@@ -1103,6 +1144,25 @@ public partial class ReadWindow : Window
 			ViewMode.Scroll => ScrollModeMenuItem,
 			_ => FitToScreenMenuItem
 		}, FitToScreenMenuItem, LeftToRightMenuItem, RightToLeftMenuItem, ScrollModeMenuItem);
+
+		UpdateViewModeIcon(mode);
+	}
+
+	private void UpdateViewModeIcon(ViewMode mode)
+	{
+		var iconName = mode switch
+		{
+			ViewMode.Single => "ViewMenuIcon",
+			ViewMode.LeftToRight => "ViewL2RIcon",
+			ViewMode.RightToLeft => "ViewR2LIcon",
+			ViewMode.Scroll => "ViewScrollIcon",
+			_ => "ViewMenuIcon",
+		};
+		if (this.TryFindResource(iconName, out var icon) && icon is DrawingImage drawingImage)
+		{
+			// 메뉴 버튼 아이콘을 현재 보기 모드에 맞게 변경합니다.
+			ViewMenuButtonIcon.Source = drawingImage;
+		}
 	}
 
 	/// <summary>
@@ -1135,14 +1195,6 @@ public partial class ReadWindow : Window
 	{
 		if (sender is Button button)
 			button.ContextMenu?.Open(button);
-	}
-
-	/// <summary>
-	/// 늘려 보기 체크 변경을 처리합니다.
-	/// </summary>
-	private void OnStretchViewClick(object? sender, RoutedEventArgs e)
-	{
-		StretchViewMenuItem.IsChecked = true;
 	}
 
 	/// <summary>
@@ -1403,8 +1455,10 @@ public partial class ReadWindow : Window
 
 		_book?.Dispose();
 		_book = null;
+		_pageWindow.ResetBook();
 		_openedEntryName = string.Empty;
 		UpdateWindowTitle();
+		UpdateViewModeIcon(ViewMode.Single);
 		RenderBook();
 	}
 
@@ -1428,6 +1482,7 @@ public partial class ReadWindow : Window
 			_book.ViewMode = _book.SupportsMultiPageModes ? Configs.ViewMode : ViewMode.Single;
 			_book.MovePage(Configs.GetHistory(path));
 			_book.PrepareImages();
+			_pageWindow.SetBook(_book);
 
 			_openedEntryName = _book.FileName;
 			UpdateWindowTitle();
@@ -1435,6 +1490,8 @@ public partial class ReadWindow : Window
 
 			if (!_book.SupportsMultiPageModes)
 				UpdateViewMode(ViewMode.Single);
+
+			UpdateViewModeIcon(Configs.ViewMode);
 		}
 		catch (Exception ex)
 		{

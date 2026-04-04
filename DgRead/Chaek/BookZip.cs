@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.IO;
 using System.IO.Compression;
 using System.Linq;
+using DgRead.Dowa;
 
 namespace DgRead.Chaek;
 
@@ -14,6 +15,8 @@ public sealed class BookZip : BookBase
 	private readonly FileInfo _zipFile;
 	private readonly FileStream _stream;
 	private readonly ZipArchive _zip;
+
+	public override string DisplayName => Path.GetFileNameWithoutExtension(FileName);
 
 	/// <summary>
 	/// ZIP 책을 생성합니다.
@@ -136,6 +139,28 @@ public sealed class BookZip : BookBase
 			return null;
 
 		return files[nextIdx].FullName;
+	}
+
+	public override string? FindRandomFile()
+	{
+		var dir = _zipFile.Directory;
+		if (dir == null)
+			return null;
+
+		var candidates = dir.GetFiles("*.zip")
+			.Where(f => !f.FullName.Equals(_zipFile.FullName, StringComparison.OrdinalIgnoreCase))
+			.ToList();
+
+		// Weight by recency: more recently modified files have higher weight.
+		// Use exponential decay with 30-day half-life approximation (scale ~= 30 days).
+		var chosen = Doumi.RandomByWeight(candidates, f =>
+		{
+			var age = DateTime.UtcNow - f.LastWriteTimeUtc;
+			var days = Math.Max(0.0, age.TotalDays);
+			return Math.Exp(-days / 30.0);
+		});
+
+		return chosen?.FullName;
 	}
 
 	/// <inheritdoc />

@@ -1,0 +1,51 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+        xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+        xmlns:local="using:DgRead"
+        mc:Ignorable="d"
+        x:Class="DgRead.PageWindow"
+        Width="560"
+        Height="620"
+        MinWidth="400"
+        MinHeight="350"
+        ShowInTaskbar="False"
+        WindowStartupLocation="CenterOwner"
+        CanResize="True">
+    <Grid RowDefinitions="Auto,Auto,*,Auto" Margin="12" RowSpacing="8">
+        <TextBlock x:Name="PageInfoTextBlock"
+                   Grid.Row="0"
+                   FontSize="14"
+                   Text="[No Book]" />
+
+        <Border Grid.Row="1" BorderThickness="0,0,0,1" BorderBrush="Gray" Padding="4,0,4,4">
+            <Grid ColumnDefinitions="56,*,120,90">
+                <TextBlock x:Name="NoHeaderTextBlock" Grid.Column="0" HorizontalAlignment="Right" Margin="0,0,8,0" />
+                <TextBlock x:Name="FilenameHeaderTextBlock" Grid.Column="1" />
+                <TextBlock x:Name="DateHeaderTextBlock" Grid.Column="2" HorizontalAlignment="Right" Margin="0,0,8,0" />
+                <TextBlock x:Name="SizeHeaderTextBlock" Grid.Column="3" HorizontalAlignment="Right" />
+            </Grid>
+        </Border>
+
+        <ListBox x:Name="PageListBox"
+                 Grid.Row="2"
+                 SelectionMode="Single"
+                 DoubleTapped="OnPageListDoubleTapped">
+            <ListBox.ItemTemplate>
+                <DataTemplate x:DataType="local:PageSelectItem">
+                    <Grid ColumnDefinitions="56,*,120,90" Margin="4,2">
+                        <TextBlock Grid.Column="0" Text="{Binding NoText}" HorizontalAlignment="Right" Margin="0,0,8,0" />
+                        <TextBlock Grid.Column="1" Text="{Binding Name}" TextTrimming="CharacterEllipsis" />
+                        <TextBlock Grid.Column="2" Text="{Binding DateText}" HorizontalAlignment="Right" Margin="0,0,8,0" />
+                        <TextBlock Grid.Column="3" Text="{Binding SizeText}" HorizontalAlignment="Right" />
+                    </Grid>
+                </DataTemplate>
+            </ListBox.ItemTemplate>
+        </ListBox>
+
+        <StackPanel Grid.Row="3" Orientation="Horizontal" HorizontalAlignment="Center" Spacing="8">
+            <Button x:Name="GoToPageButton" MinWidth="120" HorizontalContentAlignment="Center" Click="OnGoToPageClick" />
+            <Button x:Name="CancelButton" MinWidth="90" HorizontalContentAlignment="Center" Click="OnCancelClick" />
+        </StackPanel>
+    </Grid>
+</Window>

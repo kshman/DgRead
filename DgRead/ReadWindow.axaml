@@ -15,10 +15,59 @@
         DragDrop.DragOver="OnWindowDragOver"
         DragDrop.Drop="OnWindowDrop">
     <Window.Resources>
+        <Geometry x:Key="BooksIconGeometry">M19,1H9A2,2 0 0,0 7,3V15A2,2 0 0,0 9,17H19A2,2 0 0,0 21,15V3A2,2 0 0,0 19,1M19,15H9V3H19V15M15,19H5A2,2 0 0,0 3,21V23H17V21A2,2 0 0,0 15,19M15,21V21H5V21H15V21M17,19H17A2,2 0 0,0 19,21V23H21V21A2,2 0 0,0 19,19Z</Geometry>
         <Geometry x:Key="MainMenuIconGeometry">M3,6H21V8H3V6M3,11H21V13H3V11M3,16H21V18H3V16Z</Geometry>
-        <Geometry x:Key="ViewMenuIconGeometry">M4,2H18A2,2 0 0,1 20,4V18A2,2 0 0,1 18,20H4A2,2 0 0,1 2,18V4A2,2 0 0,1 4,2M4,4V18H18V4H4M8,6H16V8H8V6M8,10H16V16H8V10Z</Geometry>
-        <Geometry x:Key="BookLeftToRightIconGeometry">M2,18H14A2,2 0 0,0 16,16V4A2,2 0 0,0 14,2H2A2,2 0 0,0 0,4V16A2,2 0 0,0 2,18M2,4H14V16H2V4M18,9L21,12L18,15V13H15V11H18V9M4,6H12V8H4V6M4,10H10V12H4V10M4,14H8V16H4V14Z</Geometry>
-        <Geometry x:Key="BookRightToLeftIconGeometry">M22,18H10A2,2 0 0,1 8,16V4A2,2 0 0,1 10,2H22A2,2 0 0,1 24,4V16A2,2 0 0,1 22,18M22,4H10V16H22V4M6,9L3,12L6,15V13H9V11H6V9M12,6H20V8H12V6M14,10H20V12H14V10M16,14H20V16H16V14Z</Geometry>
+
+        <StreamGeometry x:Key="Book1Geom">M4,4H7V20H4V4Z</StreamGeometry>
+        <StreamGeometry x:Key="Book2Geom">M8,3H12V21H8V3Z</StreamGeometry>
+        <StreamGeometry x:Key="Book3Geom">M13,5H17V19H13V5Z</StreamGeometry>
+        <StreamGeometry x:Key="BookLineGeom">M4,7H7 M8,6H12 M13,8H17</StreamGeometry>
+        <StreamGeometry x:Key="BookBgGeom">M2,4H22V20H2V4M12,4V20</StreamGeometry>
+        <StreamGeometry x:Key="ArrowRightGeom">M14,12L10,8V11H6V13H10V16L14,12Z</StreamGeometry>
+        <StreamGeometry x:Key="ArrowLeftGeom">M10,12L14,8V11H18V13H14V16L10,12Z</StreamGeometry>
+        <StreamGeometry x:Key="ArrowFitGeom">M2,12L7,7V10H17V7L22,12L17,17V14H7V17L2,12Z</StreamGeometry>
+        <StreamGeometry x:Key="ArrowScrollGeom">M12,2L17,7H14V17H17L12,22L7,17H10V7H7L12,2Z</StreamGeometry>
+        <StreamGeometry x:Key="ViewMenuGeom">M4,2H18A2,2 0 0,1 20,4V18A2,2 0 0,1 18,20H4A2,2 0 0,1 2,18V4A2,2 0 0,1 4,2M4,4V18H18V4H4M8,6H16V8H8V6M8,10H16V16H8V10Z</StreamGeometry>
+
+        <DrawingImage x:Key="MultiBookIcon">
+            <DrawingGroup>
+                <GeometryDrawing Geometry="{StaticResource Book1Geom}" Brush="#E57373" />
+                <GeometryDrawing Geometry="{StaticResource Book2Geom}" Brush="#64B5F6" />
+                <GeometryDrawing Geometry="{StaticResource Book3Geom}" Brush="#FFB74D" />
+                <GeometryDrawing Geometry="{StaticResource BookLineGeom}">
+                    <GeometryDrawing.Pen>
+                        <Pen Brush="#40000000" Thickness="1"/>
+                    </GeometryDrawing.Pen>
+                </GeometryDrawing>
+            </DrawingGroup>
+        </DrawingImage>
+        <DrawingImage x:Key="ViewL2RIcon">
+            <DrawingGroup>
+                <GeometryDrawing Geometry="{StaticResource BookBgGeom}" Brush="#E0E0E0" />
+                <GeometryDrawing Geometry="{StaticResource ArrowRightGeom}" Brush="Blue" />
+            </DrawingGroup>
+        </DrawingImage>
+        <DrawingImage x:Key="ViewR2LIcon">
+            <DrawingGroup>
+                <GeometryDrawing Geometry="{StaticResource BookBgGeom}" Brush="#E0E0E0" />
+                <GeometryDrawing Geometry="{StaticResource ArrowLeftGeom}" Brush="Red" />
+            </DrawingGroup>
+        </DrawingImage>
+        <DrawingImage x:Key="ViewFitIcon">
+            <DrawingGroup>
+                <GeometryDrawing Geometry="{StaticResource ArrowFitGeom}" Brush="LimeGreen" />
+            </DrawingGroup>
+        </DrawingImage>
+        <DrawingImage x:Key="ViewScrollIcon">
+            <DrawingGroup>
+                <GeometryDrawing Geometry="{StaticResource ArrowScrollGeom}" Brush="LimeGreen" />
+            </DrawingGroup>
+        </DrawingImage>
+        <DrawingImage x:Key="ViewMenuIcon">
+            <DrawingGroup>
+                <GeometryDrawing Geometry="{StaticResource ViewMenuGeom}" Brush="White" />
+            </DrawingGroup>
+        </DrawingImage>
     </Window.Resources>
 
     <Grid RowDefinitions="Auto,*">
@@ -28,11 +77,12 @@
                 PointerPressed="OnTitleBarPointerPressed"
                 DoubleTapped="OnTitleBarDoubleTapped">
             <Grid Height="40" ColumnDefinitions="Auto,*,Auto,Auto,Auto,Auto,Auto,Auto">
-                <TextBlock Grid.Column="0"
-                           Margin="10,0,8,0"
-                           VerticalAlignment="Center"
-                           FontSize="16"
-                           Text="📚" />
+                <Image x:Name="MainIcon"
+                       Grid.Column="0" 
+                       Margin="12,0,8,0" 
+                       Width="18" 
+                       Height="18" 
+                       Source="{StaticResource MultiBookIcon}" />
 
                 <TextBlock x:Name="TitleTextBlock"
                            Grid.Column="1"
@@ -48,14 +98,11 @@
                         Background="Transparent"
                         BorderThickness="0"
                         Click="OnViewMenuButtonClick">
-                    <PathIcon Width="16"
-                              Height="16"
-                              Foreground="{DynamicResource SystemControlForegroundBaseHighBrush}"
-                              Data="{StaticResource ViewMenuIconGeometry}" />
+                    <Image x:Name="ViewMenuButtonIcon" 
+                           Width="16" Height="16" 
+                           Source="{StaticResource ViewMenuIcon}" />
                     <Button.ContextMenu>
                         <ContextMenu Placement="BottomEdgeAlignedRight">
-                            <MenuItem x:Name="StretchViewMenuItem" ToggleType="CheckBox" Click="OnStretchViewClick" />
-                            <Separator />
                             <MenuItem x:Name="ViewDirectionLabel" IsEnabled="False" />
                             <MenuItem x:Name="FitToScreenMenuItem" ToggleType="CheckBox" Click="OnViewDirectionClick" />
                             <MenuItem x:Name="LeftToRightMenuItem" ToggleType="CheckBox" Click="OnViewDirectionClick" />

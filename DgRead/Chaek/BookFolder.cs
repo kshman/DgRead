@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.IO;
 using System.IO.Compression;
 using System.Linq;
+using DgRead.Dowa;
 
 namespace DgRead.Chaek;
 
@@ -22,7 +23,7 @@ public sealed class BookFolder : BookBase
 	/// <param name="path">폴더 경로 또는 폴더 내 이미지 파일 경로</param>
 	public BookFolder(string path)
 	{
-		if (File.Exists(path))
+      if (File.Exists(path))
 		{
 			var file = new FileInfo(path);
 			_directory = file.Directory ?? throw new DirectoryNotFoundException(path);
@@ -112,6 +113,27 @@ public sealed class BookFolder : BookBase
 			return null;
 
 		return dirs[nextIdx].FullName;
+	}
+
+	/// <inheritdoc />
+    public override string? FindRandomFile()
+	{
+		var parent = _directory.Parent;
+		if (parent == null)
+			return null;
+
+		var candidates = parent.GetDirectories()
+			.Where(d => !d.FullName.Equals(_directory.FullName, StringComparison.OrdinalIgnoreCase))
+			.ToList();
+
+		var chosen = Doumi.RandomByWeight(candidates, d =>
+		{
+			var age = DateTime.UtcNow - d.LastWriteTimeUtc;
+			double days = Math.Max(0.0, age.TotalDays);
+			return Math.Exp(-days / 30.0);
+		});
+
+		return chosen?.FullName;
 	}
 
 	private void LoadEntries(string? initialName = null)
