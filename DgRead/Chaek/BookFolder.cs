@@ -89,8 +89,21 @@ public sealed class BookFolder : BookBase
 	}
 
 	/// <inheritdoc />
-	public override bool MoveFile(string newFilename) =>
-		false;
+	public override bool MoveFile(string newFilename)
+	{
+		if (!File.Exists(FullName))
+			return false;
+
+		try
+		{
+			File.Move(FullName, newFilename);
+			return true;
+		}
+		catch
+		{
+			return false;
+		}
+	}
 
 	/// <inheritdoc />
 	public override string? FindNextFile(BookDirection direction)

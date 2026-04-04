@@ -81,13 +81,13 @@ internal static class Configs
 				if (conn.ExecuteSql(query))
 					continue;
 				Debug.WriteLine($"쿼리 실패: {query}");
-				SuppUi.Ok("Failed to create config file!", "Error");
+              _ = SuppUi.OkAsync(T("Failed to create config file!"), T("Error"));
 				return false;
 			}
 		}
 		catch (Exception e)
 		{
-			SuppUi.Ok($"Failed to access config file!{Environment.NewLine}{Environment.NewLine}{e.Message}", "Error");
+            _ = SuppUi.OkAsync($"{T("Failed to access config file!")}{Environment.NewLine}{Environment.NewLine}{e.Message}", T("Error"));
 			return false;
 		}
 
@@ -572,6 +572,57 @@ internal static class Configs
 			cmd.ExecuteNonQuery();
 		}
 		transaction.Commit();
+	}
+
+	// 이동 위치 추가, 반환값: 0=성공, 1=최대 개수 초과, 2=중복
+	public static int AddMove(string folder, string alias)
+	{
+		var last = sMoves.Count;
+		if (last >= 100)
+			return 1; // 최대 100개, 1은 최대 개수 초과
+		if (sMoves.Any(x => x.Folder.Equals(folder, StringComparison.OrdinalIgnoreCase)))
+			return 2; // 이미 존재하는 경로, 2는 중복
+		sMoves.Add(new MoveInfo(last, alias, folder));
+		return 0; // 성공
+	}
+
+	// 이동 위치 수정
+	public static void EditMove(int index, string folder, string alias)
+	{
+		if (index < 0 || index >= sMoves.Count)
+			return;
+		sMoves[index] = new MoveInfo(index, alias, folder);
+	}
+
+	// 이동 위치 인덱스 재조정
+	private static void ReindexMoves()
+	{
+		for (var i = 0; i < sMoves.Count; i++)
+		{
+			var move = sMoves[i];
+			sMoves[i] = move with { No = i };
+		}
+	}
+
+	// 이동 위치 삭제
+	public static void DeleteMove(int index)
+	{
+		if (index < 0 || index >= sMoves.Count)
+			return;
+		sMoves.RemoveAt(index);
+		ReindexMoves();
+	}
+
+	// 이동 위치 조정
+	public static bool MoveMove(int oldIndex, int newIndex)
+	{
+		if (oldIndex < 0 || oldIndex >= sMoves.Count || newIndex < 0 || newIndex >= sMoves.Count)
+			return false;
+		var move = sMoves[oldIndex];
+		sMoves.RemoveAt(oldIndex);
+		sMoves.Insert(newIndex, move);
+		ReindexMoves();
+		return true;
 	}
 	#endregion
 

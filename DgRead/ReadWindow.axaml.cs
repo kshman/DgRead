@@ -21,23 +21,28 @@ namespace DgRead;
 /// </summary>
 public partial class ReadWindow : Window
 {
-	private string _openedEntryName = string.Empty;
 	private BookBase? _book;
-	private readonly DispatcherTimer _animationTimer = new() { Interval = TimeSpan.FromMilliseconds(33) };
-	private readonly DispatcherTimer _keyHoldTimer = new() { Interval = TimeSpan.FromMilliseconds(33) };
-	private readonly List<AnimationBinding> _animations = [];
-	private readonly Dictionary<int, PageImage> _scrollPageCache = [];
+	private string _openedEntryName = string.Empty;
+
+	private readonly PageWindow _pageWindow;
 	private readonly ZpsController _zps;
 	private readonly ScrollModeController _scroll;
+
+	private readonly DispatcherTimer _animationTimer = new() { Interval = TimeSpan.FromMilliseconds(33) };
+	private readonly DispatcherTimer _keyHoldTimer = new() { Interval = TimeSpan.FromMilliseconds(33) };
+
+	private readonly List<AnimationBinding> _animations = [];
+	private readonly Dictionary<int, PageImage> _scrollPageCache = [];
 	private readonly HashSet<Key> _pressedKeys = [];
-	private readonly PageWindow _pageWindow;
+
 	private int _holdTick;
 	private bool _virtualizeBusy;
 	private bool _virtualizePending;
 	private DateTime _lastVirtualizeAtUtc;
 	private DateTime _lastAnimationTickAtUtc;
-	private static readonly TimeSpan VirtualizeCooldown = TimeSpan.FromMilliseconds(120);
+
 	private const int MinAnimationFrameDurationMs = 10;
+	private static readonly TimeSpan VirtualizeCooldown = TimeSpan.FromMilliseconds(120);
 
 	/// <summary>
 	/// <see cref="ReadWindow"/> 인스턴스를 초기화합니다.
@@ -233,7 +238,7 @@ public partial class ReadWindow : Window
 	/// <summary>
 	/// 파일/폴더 드롭을 처리하여 책을 엽니다.
 	/// </summary>
-	private void OnWindowDrop(object? sender, DragEventArgs e)
+  private async void OnWindowDrop(object? sender, DragEventArgs e)
 	{
 		try
 		{
@@ -262,7 +267,7 @@ public partial class ReadWindow : Window
 		}
 		catch (Exception ex)
 		{
-			SuppUi.Ok($"{T("Failed to open book/file")}{Environment.NewLine}{ex.Message}", "Error");
+         await SuppUi.OkAsync($"{T("Failed to open book/file")}{Environment.NewLine}{ex.Message}", T("Error"));
 		}
 	}
 
@@ -643,7 +648,7 @@ public partial class ReadWindow : Window
 		}
 	}
 
-	private bool IsModifierOnly(Key key) =>
+	private static bool IsModifierOnly(Key key) =>
 		key is Key.LeftCtrl or Key.RightCtrl or Key.LeftAlt or Key.RightAlt or Key.LeftShift or Key.RightShift;
 
 	private bool ShouldUseContinuousInput() =>
@@ -698,28 +703,30 @@ public partial class ReadWindow : Window
 		SyncScrollCurrentPage();
 
 		var dir = _scroll.GetVirtualizeDirection();
-		if (dir == 0)
-			return;
-
-		if (dir > 0 && _book.CurrentPage >= _book.TotalPage - 1)
-			return;
-		if (dir < 0 && _book.CurrentPage <= 0)
-			return;
-
-		_virtualizeBusy = true;
-		try
+		switch (dir)
 		{
-			if (_book.MovePage(_book.CurrentPage + dir))
-			{
-				_book.PrepareImages();
-				RenderBook();
-				UpdateWindowTitle();
-				_lastVirtualizeAtUtc = DateTime.UtcNow;
-			}
-		}
-		finally
-		{
-			_virtualizeBusy = false;
+			case 0:
+			case > 0 when _book.CurrentPage >= _book.TotalPage - 1:
+			case < 0 when _book.CurrentPage <= 0:
+				return;
+			default:
+				_virtualizeBusy = true;
+				try
+				{
+					if (_book.MovePage(_book.CurrentPage + dir))
+					{
+						_book.PrepareImages();
+						RenderBook();
+						UpdateWindowTitle();
+						_lastVirtualizeAtUtc = DateTime.UtcNow;
+					}
+				}
+				finally
+				{
+					_virtualizeBusy = false;
+				}
+
+				break;
 		}
 	}
 
@@ -1099,9 +1106,39 @@ public partial class ReadWindow : Window
 	/// <summary>
 	/// 현재 책을 이동하는 흐름을 시작합니다.
 	/// </summary>
-	private void MoveBook()
+	private async void MoveBook()
 	{
-		Debug.WriteLine("MoveBook");
+		try
+		{
+			var book = _book;
+			var fileName = book?.FileName ?? string.Empty;
+
+			var dlg = new MoveDialog();
+			var destinationFile = await dlg.ShowForMoveAsync(this, fileName);
+			if (string.IsNullOrWhiteSpace(destinationFile))
+				return;
+
+			if (book == null)
+			{
+             await SuppUi.OkAsync(T("[No book opened]"), T("Information"));
+				return;
+			}
+
+			var next = book.FindNextFileAny(BookDirection.Next);
+			if (!book.MoveFile(destinationFile))
+			{
+               await SuppUi.OkAsync(T("Failed to move book/file"), T("Error"));
+				return;
+			}
+
+			CloseBook();
+			if (!string.IsNullOrWhiteSpace(next))
+				OpenBookByPath(next);
+		}
+		catch (Exception ex)
+		{
+         await SuppUi.OkAsync($"{T("Failed to move book/file")}{Environment.NewLine}{ex.Message}", T("Error"));
+		}
 	}
 
 	/// <summary>
@@ -1297,7 +1334,7 @@ public partial class ReadWindow : Window
 		}
 		catch (Exception ex)
 		{
-			SuppUi.Ok($"{T("Failed to open book/file")}{Environment.NewLine}{ex.Message}", "Error");
+            await SuppUi.OkAsync($"{T("Failed to open book/file")}{Environment.NewLine}{ex.Message}", "Error");
 		}
 	}
 
@@ -1312,7 +1349,7 @@ public partial class ReadWindow : Window
 		}
 		catch (Exception ex)
 		{
-			SuppUi.Ok($"{T("Failed to open folder")}{Environment.NewLine}{ex.Message}", "Error");
+            await SuppUi.OkAsync($"{T("Failed to open folder")}{Environment.NewLine}{ex.Message}", T("Error"));
 		}
 	}
 
@@ -1368,7 +1405,7 @@ public partial class ReadWindow : Window
 		}
 		catch (Exception ex)
 		{
-			SuppUi.Ok($"{T("Failed to open book/file")}{Environment.NewLine}{ex.Message}", "Error");
+         await SuppUi.OkAsync($"{T("Failed to open book/file")}{Environment.NewLine}{ex.Message}", T("Error"));
 		}
 	}
 
@@ -1383,7 +1420,7 @@ public partial class ReadWindow : Window
 		}
 		catch (Exception ex)
 		{
-			SuppUi.Ok($"{T("Failed to open folder")}{Environment.NewLine}{ex.Message}", "Error");
+            await SuppUi.OkAsync($"{T("Failed to open folder")}{Environment.NewLine}{ex.Message}", T("Error"));
 		}
 	}
 
@@ -1477,7 +1514,7 @@ public partial class ReadWindow : Window
 			var book = BookFactory.Open(path);
 			if (book == null)
 			{
-				SuppUi.Ok(T("Unsupported book format"), "Error");
+                _ = SuppUi.OkAsync(T("Unsupported book format"), T("Error"));
 				return;
 			}
 
@@ -1500,7 +1537,7 @@ public partial class ReadWindow : Window
 		}
 		catch (Exception ex)
 		{
-			SuppUi.Ok($"{T("Failed to open book/file")}{Environment.NewLine}{ex.Message}", "Error");
+         _ = SuppUi.OkAsync($"{T("Failed to open book/file")}{Environment.NewLine}{ex.Message}", T("Error"));
 		}
 	}
 

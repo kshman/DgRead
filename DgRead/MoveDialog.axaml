@@ -1,0 +1,63 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+        xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+        xmlns:local="using:DgRead"
+        mc:Ignorable="d"
+        x:Class="DgRead.MoveDialog"
+        Width="560"
+        Height="650"
+        MinWidth="460"
+        MinHeight="460"
+        ShowInTaskbar="False"
+        WindowStartupLocation="CenterOwner"
+        CanResize="True">
+    <Grid RowDefinitions="Auto,Auto,*,Auto,Auto,Auto" Margin="12" RowSpacing="8">
+        <TextBlock x:Name="GuideTextBlock"
+                   Grid.Row="0"
+                   FontSize="14" />
+
+        <Border Grid.Row="1" BorderThickness="0,0,0,1" BorderBrush="Gray" Padding="4,0,4,4">
+            <Grid ColumnDefinitions="56,160,*">
+                <TextBlock x:Name="NoHeaderTextBlock" Grid.Column="0" HorizontalAlignment="Right" Margin="0,0,8,0" />
+                <TextBlock x:Name="AliasHeaderTextBlock" Grid.Column="1" />
+                <TextBlock x:Name="DirectoryHeaderTextBlock" Grid.Column="2" />
+            </Grid>
+        </Border>
+
+        <ListBox x:Name="MoveListBox"
+                 Grid.Row="2"
+                 SelectionMode="Single"
+                 DoubleTapped="OnMoveListDoubleTapped">
+            <ListBox.ItemTemplate>
+                <DataTemplate x:DataType="local:MoveDialogItem">
+                    <Grid ColumnDefinitions="56,160,*" Margin="4,2">
+                        <TextBlock Grid.Column="0" Text="{Binding No}" HorizontalAlignment="Right" Margin="0,0,8,0" />
+                        <TextBlock Grid.Column="1" Text="{Binding Alias}" TextTrimming="CharacterEllipsis" Margin="0,0,8,0" />
+                        <TextBlock Grid.Column="2" Text="{Binding Folder}" TextTrimming="CharacterEllipsis" />
+                    </Grid>
+                </DataTemplate>
+            </ListBox.ItemTemplate>
+        </ListBox>
+
+        <Grid Grid.Row="3" ColumnDefinitions="Auto,*,Auto" ColumnSpacing="8">
+            <Button x:Name="BrowseButton" Grid.Column="0" MinWidth="90" Click="OnBrowseClick" />
+            <TextBox x:Name="DestTextBox" Grid.Column="1" />
+            <Button x:Name="AddLocationButton" Grid.Column="2" MinWidth="100" Click="OnAddLocationClick" />
+        </Grid>
+
+        <Grid Grid.Row="4" ColumnDefinitions="Auto,*,Auto,Auto,Auto,Auto" ColumnSpacing="8">
+            <TextBlock x:Name="AliasLabelTextBlock" Grid.Column="0" VerticalAlignment="Center" />
+            <TextBox x:Name="AliasTextBox" Grid.Column="1" />
+            <Button x:Name="ApplyAliasButton" Grid.Column="2" MinWidth="100" Click="OnApplyAliasClick" />
+            <Button x:Name="MoveUpButton" Grid.Column="3" MinWidth="90" Click="OnMoveUpClick" />
+            <Button x:Name="MoveDownButton" Grid.Column="4" MinWidth="90" Click="OnMoveDownClick" />
+            <Button x:Name="DeleteLocationButton" Grid.Column="5" MinWidth="110" Click="OnDeleteLocationClick" />
+        </Grid>
+
+        <StackPanel Grid.Row="5" Orientation="Horizontal" HorizontalAlignment="Center" Spacing="8" Margin="0,8,0,0">
+            <Button x:Name="OkButton" MinWidth="120" HorizontalContentAlignment="Center" Click="OnOkClick" />
+            <Button x:Name="CancelButton" MinWidth="90" HorizontalContentAlignment="Center" Click="OnCancelClick" />
+        </StackPanel>
+    </Grid>
+</Window>

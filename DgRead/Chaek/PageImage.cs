@@ -67,7 +67,7 @@ public sealed class PageImage : IDisposable
 		if (CurrentFrame >= Frames.Count)
 			CurrentFrame = 0;
 
-      return Frames[CurrentFrame].Duration;
+		return Frames[CurrentFrame].Duration;
 	}
 
 	/// <summary>
