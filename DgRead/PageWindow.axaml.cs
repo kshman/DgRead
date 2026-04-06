@@ -46,8 +46,6 @@ public partial class PageWindow : Window
 		FilenameHeaderTextBlock.Text = T("Filename");
 		DateHeaderTextBlock.Text = T("Date");
 		SizeHeaderTextBlock.Text = T("Size");
-		GoToPageButton.Content = T("Go to page");
-		CancelButton.Content = T("Cancel");
 	}
 
 	private void OnWindowClosing(object? sender, WindowClosingEventArgs e)
@@ -92,12 +90,6 @@ public partial class PageWindow : Window
 
 	private void OnPageListDoubleTapped(object? sender, RoutedEventArgs e) =>
 		CompleteSelection(GetSelectedPage());
-
-	private void OnGoToPageClick(object? sender, RoutedEventArgs e) =>
-		CompleteSelection(GetSelectedPage());
-
-	private void OnCancelClick(object? sender, RoutedEventArgs e) =>
-		CompleteSelection(-1);
 
 	private int GetSelectedPage()
 	{

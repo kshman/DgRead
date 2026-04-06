@@ -593,33 +593,89 @@ internal static class Configs
 	#region 즐겨찾기
 	public static IReadOnlyList<BookmarkInfo> Bookmarks => sBookmarks;
 
-	public static void CommitBookmarks()
+	public static bool TryGetBookmark(string path, int page, out BookmarkInfo? bookmark)
 	{
-		// 새로 추가된것이 있는가
-		var incomes = sBookmarks.Count(bm => bm.Incoming);
-		if (incomes == 0)
-			return;
+		bookmark = null;
+		if (string.IsNullOrWhiteSpace(path) || page < 0)
+			return false;
 
-		// 있다면 새로 추가된 것만 넣는다
-		using var conn = OpenConnection();
-		using var cmd = conn.CreateCommand();
-		using var transaction = conn.BeginTransaction();
-		cmd.Transaction = transaction;
-		var count = sBookmarks.Count;
-		for (var i = 0; i < count; i++)
+		for (var i = 0; i < sBookmarks.Count; i++)
 		{
 			var bm = sBookmarks[i];
-			if (!bm.Incoming)
+			if (!bm.Path.Equals(path, StringComparison.OrdinalIgnoreCase) || bm.Page != page)
 				continue;
-			cmd.CommandText = "INSERT INTO bookmarks (path, page, created) VALUES (@path, @page, @created);";
-			cmd.Parameters.Clear();
-			cmd.Parameters.AddWithValue("@path", bm.Path);
-			cmd.Parameters.AddWithValue("@page", bm.Page);
-			cmd.Parameters.AddWithValue("@created", bm.Created.ToString("o"));
-			cmd.ExecuteNonQuery();
-			sBookmarks[i] = bm with { Incoming = false };
+
+			bookmark = bm;
+			return true;
 		}
-		transaction.Commit();
+
+		return false;
+	}
+
+	public static bool AddBookmark(string path, int page, out BookmarkInfo bookmark)
+	{
+		if (TryGetBookmark(path, page, out var exists) && exists != null)
+		{
+			bookmark = exists;
+			return false;
+		}
+
+		var now = DateTime.Now;
+		try
+		{
+			using var conn = OpenConnection();
+			using var cmd = conn.CreateCommand();
+			cmd.CommandText = "INSERT INTO bookmarks (path, page, created) VALUES (@path, @page, @created); SELECT last_insert_rowid();";
+			cmd.Parameters.AddWithValue("@path", path);
+			cmd.Parameters.AddWithValue("@page", page);
+			cmd.Parameters.AddWithValue("@created", now.ToString("o"));
+
+			var idObj = cmd.ExecuteScalar();
+			var id = Convert.ToInt32(idObj);
+			bookmark = new BookmarkInfo(id, path, page, now, false);
+			sBookmarks.Add(bookmark);
+			return true;
+		}
+		catch (Exception e)
+		{
+			Debug.WriteLine($"북마크 저장 실패: \"{path}\":{page}");
+			Debug.WriteLine($" >> {e.Message}");
+			bookmark = new BookmarkInfo(0, path, page, now, false);
+			return false;
+		}
+	}
+
+	public static bool RemoveBookmark(int id)
+	{
+		var index = sBookmarks.FindIndex(bm => bm.Id == id);
+		if (index < 0)
+			return false;
+
+		try
+		{
+			using var conn = OpenConnection();
+			using var cmd = conn.CreateCommand();
+			cmd.CommandText = "DELETE FROM bookmarks WHERE id = @id;";
+			cmd.Parameters.AddWithValue("@id", id);
+			_ = cmd.ExecuteNonQuery();
+
+			sBookmarks.RemoveAt(index);
+			return true;
+		}
+		catch (Exception e)
+		{
+			Debug.WriteLine($"북마크 삭제 실패: {id}");
+			Debug.WriteLine($" >> {e.Message}");
+			return false;
+		}
+	}
+
+	public static bool RemoveBookmark(string path, int page)
+	{
+		if (!TryGetBookmark(path, page, out var bookmark) || bookmark == null)
+			return false;
+
+		return RemoveBookmark(bookmark.Id);
 	}
 	#endregion
 }

@@ -42,10 +42,5 @@
                 </DataTemplate>
             </ListBox.ItemTemplate>
         </ListBox>
-
-        <StackPanel Grid.Row="3" Orientation="Horizontal" HorizontalAlignment="Center" Spacing="8">
-            <Button x:Name="GoToPageButton" MinWidth="120" HorizontalContentAlignment="Center" Click="OnGoToPageClick" />
-            <Button x:Name="CancelButton" MinWidth="90" HorizontalContentAlignment="Center" Click="OnCancelClick" />
-        </StackPanel>
     </Grid>
 </Window>

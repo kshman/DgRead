@@ -8,6 +8,12 @@
 		<ApplicationIcon>Assets\DgRead.ico</ApplicationIcon>
 	</PropertyGroup>
 
+	<PropertyGroup Condition="'$(Configuration)' == 'Release' And $(RuntimeIdentifier.StartsWith('win'))">
+		<IncludeNativeLibrariesForSelfExtract>true</IncludeNativeLibrariesForSelfExtract>
+		<DebugType>none</DebugType>
+		<DebugSymbols>false</DebugSymbols>
+	</PropertyGroup>
+
 	<ItemGroup>
 		<PackageReference Include="Avalonia" Version="11.3.13" />
 		<PackageReference Include="Avalonia.Desktop" Version="11.3.13" />

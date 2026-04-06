@@ -155,6 +155,9 @@
                             <MenuItem x:Name="OpenFolderMenuItem" Click="OnOpenFolderClick" InputGesture="Ctrl+Shift+O" />
                             <MenuItem x:Name="CloseBookMenuItem" Click="OnCloseBookClick" InputGesture="Ctrl+W" />
                             <Separator />
+                            <MenuItem x:Name="AddBookmarkMenuItem" Click="OnAddBookmarkClick" InputGesture="Ctrl+B" />
+                            <MenuItem x:Name="ManageBookmarksMenuItem" Click="OnManageBookmarksClick" InputGesture="F9" />
+                            <Separator />
                             <MenuItem x:Name="SettingsMenuItem" Click="OnSettingsClick" InputGesture="Ctrl+," />
                             <MenuItem x:Name="ThemeMenuItem">
                                 <MenuItem x:Name="ThemeDefaultMenuItem" ToggleType="CheckBox" Click="OnThemeMenuClick" />

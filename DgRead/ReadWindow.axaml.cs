@@ -125,6 +125,8 @@ public partial class ReadWindow : Window
 		OpenBookMenuItem.Header = T("Open Book/File");
 		OpenFolderMenuItem.Header = T("Open Folder");
 		CloseBookMenuItem.Header = T("Close Book");
+		AddBookmarkMenuItem.Header = T("Add bookmark");
+		ManageBookmarksMenuItem.Header = T("Manage bookmarks");
 		SettingsMenuItem.Header = T("Settings");
 		ThemeMenuItem.Header = T("Theme");
 		ThemeDefaultMenuItem.Header = T("System default");
@@ -545,6 +547,19 @@ public partial class ReadWindow : Window
 					// 비동기 호출이라 앞에 대입을 넣어줘야 함
 					_ = e.KeyModifiers.HasFlag(KeyModifiers.Shift) ? OpenFolderSafeAsync() : OpenBookFileSafeAsync();
 				}
+				else
+					handled = false;
+				break;
+
+			case Key.B:
+				if (e.KeyModifiers.HasFlag(KeyModifiers.Control))
+					_ = AddBookmarkAsync();
+				else
+					handled = false;
+				break;
+
+			case Key.F9:
+				_ = OpenBookmarkWindowAsync();
 				break;
 
 			case Key.BrowserBack:
@@ -1519,6 +1534,38 @@ public partial class ReadWindow : Window
 		CloseBook();
 
 	/// <summary>
+	/// 책갈피 추가 메뉴 클릭을 처리합니다.
+	/// </summary>
+	private async void OnAddBookmarkClick(object? sender, RoutedEventArgs e)
+	{
+		try
+		{
+			await AddBookmarkAsync();
+		}
+		catch (Exception ex)
+		{
+			Debug.WriteLine($"책갈피 추가 실패: {ex.Message}");
+			Notify(T("Failed to add bookmark"));
+		}
+	}
+
+	/// <summary>
+	/// 책갈피 관리 메뉴 클릭을 처리합니다.
+	/// </summary>
+	private async void OnManageBookmarksClick(object? sender, RoutedEventArgs e)
+	{
+		try
+		{
+			await OpenBookmarkWindowAsync();
+		}
+		catch (Exception ex)
+		{
+			Debug.WriteLine($"책갈피 관리 창 열기 실패: {ex.Message}");
+			Notify(T("Failed to open bookmark manager"));
+		}
+	}
+
+	/// <summary>
 	/// 설정 메뉴 클릭을 처리합니다.
 	/// </summary>
 	private void OnSettingsClick(object? sender, RoutedEventArgs e)
@@ -1567,6 +1614,64 @@ public partial class ReadWindow : Window
 			Debug.WriteLine($"책/파일 열기 메뉴 실패: {ex.Message}");
 			Notify($"{T("Failed to open book/file")}{Environment.NewLine}{ex.Message}", 5000);
 		}
+	}
+
+	/// <summary>
+	/// 현재 페이지를 책갈피로 추가하거나, 이미 존재하면 삭제 여부를 확인합니다.
+	/// </summary>
+	private async Task AddBookmarkAsync()
+	{
+		var book = _book;
+		if (book == null)
+			return;
+
+		var path = book.FullName;
+		var page = book.CurrentPage;
+
+		if (Configs.TryGetBookmark(path, page, out var exists) && exists != null)
+		{
+			var remove = await SuppUi.YesNoAsync(
+				$"{book.DisplayName} ({page + 1}){Environment.NewLine}{Environment.NewLine}{T("Bookmark already exists. Delete it?")}",
+				T("Confirm"));
+			if (!remove)
+				return;
+
+			if (Configs.RemoveBookmark(exists.Id))
+				Notify(T("Bookmark removed"), 1000);
+			else
+				Notify(T("Failed to delete bookmark"));
+
+			return;
+		}
+
+		if (Configs.AddBookmark(path, page, out _))
+			Notify(T("Bookmark added"), 1000);
+		else
+			Notify(T("Failed to add bookmark"));
+	}
+
+	/// <summary>
+	/// 책갈피 관리 창을 열고 선택된 책갈피 위치로 이동합니다.
+	/// </summary>
+	private async Task OpenBookmarkWindowAsync()
+	{
+		var dlg = new BookmarkWindow();
+		var selected = await dlg.ShowAsync(this);
+		if (selected == null)
+			return;
+
+		if (_book == null || !_book.FullName.Equals(selected.Path, StringComparison.OrdinalIgnoreCase))
+			OpenBook(selected.Path);
+
+		var book = _book;
+		if (book == null || !book.FullName.Equals(selected.Path, StringComparison.OrdinalIgnoreCase))
+			return;
+
+		_zps.ResetZoom();
+		book.MovePage(selected.Page);
+		book.PrepareImages();
+		RenderBook();
+		UpdateTitleText();
 	}
 
 	/// <summary>
