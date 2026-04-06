@@ -2,7 +2,7 @@ using System;
 using System.Collections.Generic;
 using Avalonia.Media.Imaging;
 
-namespace DgRead.Chaek;
+namespace DgRead.Dowa;
 
 /// <summary>
 /// 단일 이미지 또는 애니메이션 프레임 집합을 나타냅니다.
@@ -90,3 +90,10 @@ public sealed class PageImage : IDisposable
 		}
 	}
 }
+
+/// <summary>
+/// 애니메이션 프레임 정보입니다.
+/// </summary>
+/// <param name="Bitmap">프레임 비트맵입니다.</param>
+/// <param name="Duration">프레임 표시 시간(밀리초)입니다.</param>
+public sealed record AnimatedFrame(Bitmap Bitmap, int Duration);

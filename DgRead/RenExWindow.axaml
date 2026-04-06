@@ -1,0 +1,38 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+        xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+        mc:Ignorable="d"
+        x:Class="DgRead.RenExWindow"
+        Width="700"
+        Height="360"
+        MinWidth="620"
+        MinHeight="340"
+        ShowInTaskbar="False"
+        WindowStartupLocation="CenterOwner"
+        CanResize="False">
+    <Grid RowDefinitions="*,Auto" Margin="16" RowSpacing="16">
+        <Grid Grid.Row="0" ColumnDefinitions="Auto,*" RowDefinitions="Auto,Auto,Auto,Auto,Auto,Auto" ColumnSpacing="8" RowSpacing="8">
+            <TextBlock x:Name="OriginalLabel" Grid.Row="0" Grid.Column="0" VerticalAlignment="Center" HorizontalAlignment="Right" />
+            <TextBlock x:Name="OriginalText" Grid.Row="0" Grid.Column="1" VerticalAlignment="Center" TextTrimming="CharacterEllipsis" />
+            <TextBlock x:Name="RenameToLabel" Grid.Row="1" Grid.Column="0" VerticalAlignment="Center" HorizontalAlignment="Right" />
+            <TextBlock x:Name="RenameToText" Grid.Row="1" Grid.Column="1" VerticalAlignment="Center" TextTrimming="CharacterEllipsis" FontWeight="SemiBold" />
+            <Border Grid.Row="2" Grid.ColumnSpan="2" Height="8" />
+            <TextBlock x:Name="TitleLabel" Grid.Row="3" Grid.Column="0" VerticalAlignment="Center" HorizontalAlignment="Right" />
+            <TextBox x:Name="TitleTextBox" Grid.Row="3" Grid.Column="1" KeyDown="OnTitleKeyDown" TextChanged="OnEntryChanged" />
+            <TextBlock x:Name="AuthorLabel" Grid.Row="4" Grid.Column="0" VerticalAlignment="Center" HorizontalAlignment="Right" />
+            <Grid Grid.Row="4" Grid.Column="1" ColumnDefinitions="2*,Auto,*" ColumnSpacing="8">
+                <TextBox x:Name="AuthorTextBox" Grid.Column="0" KeyDown="OnAuthorKeyDown" TextChanged="OnEntryChanged" />
+                <TextBlock x:Name="NoLabel" Grid.Column="1" VerticalAlignment="Center" HorizontalAlignment="Right" />
+                <TextBox x:Name="IndexTextBox" Grid.Column="2" KeyDown="OnIndexKeyDown" TextChanged="OnEntryChanged" />
+            </Grid>
+            <TextBlock x:Name="ExtraLabel" Grid.Row="5" Grid.Column="0" VerticalAlignment="Center" HorizontalAlignment="Right" />
+            <TextBox x:Name="ExtraTextBox" Grid.Row="5" Grid.Column="1" KeyDown="OnExtraKeyDown" TextChanged="OnEntryChanged" />
+        </Grid>
+        <StackPanel Grid.Row="1" Orientation="Horizontal" HorizontalAlignment="Center" Spacing="8">
+            <Button x:Name="OkButton" MinWidth="100" Click="OnOkClick" IsDefault="True" />
+            <Button x:Name="ReopenButton" MinWidth="100" Click="OnReopenClick" />
+            <Button x:Name="CancelButton" MinWidth="100" Click="OnCancelClick" IsCancel="True" />
+        </StackPanel>
+    </Grid>
+</Window>

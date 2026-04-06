@@ -79,7 +79,7 @@ public partial class MoveDialog : Window
 		FocusMoveListLater();
 	}
 
-	public async Task<string?> ShowForMoveAsync(Window owner, string fileName)
+	public async Task<string?> ShowAsync(Window owner, string fileName)
 	{
 		_fileName = fileName;
 		_resultPath = null;
@@ -193,7 +193,6 @@ public partial class MoveDialog : Window
 				return;
 
 			DestTextBox.Text = folder;
-			Configs.LastFolder = folder;
 		}
 		catch (Exception ex)
 		{
@@ -444,7 +443,6 @@ public partial class MoveDialog : Window
 			return;
 		}
 
-		Configs.LastFolder = folder;
 		_resultPath = Path.Combine(folder, _fileName);
 		Close(true);
 	}

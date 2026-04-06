@@ -13,8 +13,8 @@
         ExtendClientAreaTitleBarHeightHint="-1"
         SystemDecorations="Full"
         DragDrop.AllowDrop="True"
-        DragDrop.DragOver="OnWindowDragOver"
-        DragDrop.Drop="OnWindowDrop">
+        DragDrop.DragOver="OnDragOverEvent"
+        DragDrop.Drop="OnDropEvent">
     <Window.Resources>
         <Geometry x:Key="BooksIconGeometry">M19,1H9A2,2 0 0,0 7,3V15A2,2 0 0,0 9,17H19A2,2 0 0,0 21,15V3A2,2 0 0,0 19,1M19,15H9V3H19V15M15,19H5A2,2 0 0,0 3,21V23H17V21A2,2 0 0,0 15,19M15,21V21H5V21H15V21M17,19H17A2,2 0 0,0 19,21V23H21V21A2,2 0 0,0 19,19Z</Geometry>
         <Geometry x:Key="MainMenuIconGeometry">M3,6H21V8H3V6M3,11H21V13H3V11M3,16H21V18H3V16Z</Geometry>
@@ -246,6 +246,27 @@
                            Source="avares://DgRead/Assets/logo.png" />
                 </Grid>
             </ScrollViewer>
+
+            <Border x:Name="NotifyBorder"
+                    IsVisible="False"
+                    ZIndex="100"
+                    Margin="20,0"
+                    Padding="12,8"
+                    HorizontalAlignment="Stretch"
+                    VerticalAlignment="Center"
+                    Background="#CC002020"
+                    BorderBrush="#FF406060"
+                    BorderThickness="1"
+                    CornerRadius="6">
+                <TextBlock x:Name="NotifyTextBlock"
+                           Text=""
+                           FontSize="24"
+                           Foreground="White"
+                           TextAlignment="Center"
+                           HorizontalAlignment="Center"
+                           VerticalAlignment="Center"
+                           TextWrapping="Wrap" />
+            </Border>
         </Grid>
 
         <Border Grid.RowSpan="2" Height="6" VerticalAlignment="Top" Background="Transparent" PointerPressed="OnResizeTopPressed" />

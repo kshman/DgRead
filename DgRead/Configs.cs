@@ -40,15 +40,13 @@ internal static class Configs
 	private static bool sMouseDoubleFullScreen;
 	private static bool sMouseClickPaging;
 
-	private static bool sViewZoom = true;
-	private static ViewMode sViewMode = ViewMode.Fit;
+	private static ViewMode sViewMode = ViewMode.Single;
 	private static ViewAlign sViewAlign = ViewAlign.Center;
 	private static ViewQuality sViewQuality = ViewQuality.Default;
 	private static int sViewMargin = 100;
 
 	private static readonly List<MoveInfo> sMoves = [];
 	private static readonly List<BookmarkInfo> sBookmarks = [];
-	private static readonly List<string> sRandoms = [];
 
 	private static readonly Dictionary<string, string> sStorage = [];
 	#endregion
@@ -145,7 +143,6 @@ internal static class Configs
 		sMouseDoubleFullScreen = conn.SelectConfigsAsBool("MouseDoubleFullScreen", sMouseDoubleFullScreen);
 		sMouseClickPaging = conn.SelectConfigsAsBool("MouseClickPaging", sMouseClickPaging);
 
-		sViewZoom = conn.SelectConfigsAsBool("ViewZoom", sViewZoom);
 		sViewMode = conn.SelectConfigsAsViewMode("ViewMode");
 		sViewAlign = conn.SelectConfigsAsViewAlign("ViewAlign");
 		sViewQuality = conn.SelectConfigsAsViewQuality("ViewQuality");
@@ -230,7 +227,7 @@ internal static class Configs
 		public bool SelectConfigsAsBool(string key, bool defaultValue = false) =>
 			conn.SelectConfigs(key).AlterBool(defaultValue);
 
-		public ViewMode SelectConfigsAsViewMode(string key, ViewMode defaultValue = ViewMode.Fit) =>
+		public ViewMode SelectConfigsAsViewMode(string key, ViewMode defaultValue = ViewMode.Single) =>
 			conn.SelectConfigs(key) is { } s && Enum.TryParse<ViewMode>(s, out var vm) ? vm : defaultValue;
 
 		public ViewAlign SelectConfigsAsViewAlign(string key, ViewAlign defaultValue = ViewAlign.Center) =>
@@ -410,16 +407,6 @@ internal static class Configs
 		}
 	}
 
-	public static bool ViewZoom
-	{
-		get => sViewZoom;
-		set
-		{
-			if (value == sViewZoom) return;
-			SetSql("ViewZoom", sViewZoom = value);
-		}
-	}
-
 	public static ViewMode ViewMode
 	{
 		get => sViewMode;
@@ -461,22 +448,6 @@ internal static class Configs
 			var v = value < 0 ? 0 : value;
 			if (v == sViewMargin) return;
 			SetSql("ViewMargin", sViewMargin = v);
-		}
-	}
-
-	public static string LastFolder
-	{
-		get
-		{
-			var s = GetSql("FileLastFolder") ?? Environment.GetFolderPath(Environment.SpecialFolder.MyDocuments);
-			return sStorage["FileLastFolder"] = s;
-		}
-		set
-		{
-			var s = sStorage.GetValueOrDefault("FileLastFolder");
-			if (string.IsNullOrEmpty(s) && value.Equals(s))
-				return;
-			SetSql("FileLastFolder", sStorage["FileLastFolder"] = value);
 		}
 	}
 
@@ -535,16 +506,6 @@ internal static class Configs
 			Debug.WriteLine($"최근 파일 쓰기 실패: \"{filename}\":{page}");
 			Debug.WriteLine($" >> {e.Message}");
 		}
-	}
-
-	public static bool TestCanTakeRandom(string filename)
-	{
-		var index = sRandoms.FindIndex(f => f == filename);
-		if (index >= 0)
-			return false;
-
-		sRandoms.Add(filename);
-		return true;
 	}
 	#endregion
 

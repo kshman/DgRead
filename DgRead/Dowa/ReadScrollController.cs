@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Input;
@@ -8,9 +9,9 @@ using Avalonia.Threading;
 namespace DgRead.Dowa;
 
 /// <summary>
-/// 스크롤 모드 전용 입력/가상화/너비 조절을 관리합니다.
+/// 읽기 윈도우 스크롤 모드 전용 입력/가상화/너비 조절을 관리합니다.
 /// </summary>
-internal sealed class ScrollModeController
+internal sealed class ReadScrollController
 {
 	public const int MinWidthPercent = 50;
 	public const int MaxWidthPercent = 100;
@@ -29,22 +30,18 @@ internal sealed class ScrollModeController
 
 	public int WidthPercent { get; private set; } = 80;
 
-	public ScrollModeController(ScrollViewer viewer, StackPanel panel)
+	public ReadScrollController(ScrollViewer viewer, StackPanel panel)
 	{
 		_viewer = viewer;
 		_panel = panel;
 	}
 
-	public bool TryHandleWidthKey(Key key)
+	public bool HandleKeyDown(Key key) => key switch
 	{
-		if (key is Key.Add or Key.OemPlus)
-			return AdjustWidth(+WidthStepPercent);
-
-		if (key is Key.Subtract or Key.OemMinus)
-			return AdjustWidth(-WidthStepPercent);
-
-		return false;
-	}
+		Key.Add or Key.OemPlus => AdjustWidth(+WidthStepPercent),
+		Key.Subtract or Key.OemMinus => AdjustWidth(-WidthStepPercent),
+		_ => false
+	};
 
 	public void CaptureAnchorByCenter()
 	{
@@ -172,7 +169,7 @@ internal sealed class ScrollModeController
 		}, DispatcherPriority.Render);
 	}
 
- public void RenderWindow(BookBase book, Dictionary<int, PageImage> pageCache, Action<PageImage, Image> registerAnimation)
+	public void RenderWindow(BookBase book, Dictionary<int, PageImage> pageCache, Action<PageImage, Image> registerAnimation)
 	{
 		var first = Math.Max(0, book.CurrentPage - PreloadRadius);
 		var last = Math.Min(book.TotalPage - 1, book.CurrentPage + PreloadRadius);
@@ -181,9 +178,9 @@ internal sealed class ScrollModeController
 
 		for (var i = first; i <= last; i++)
 		{
-           if (!pageCache.TryGetValue(i, out var page))
+			if (!pageCache.TryGetValue(i, out var page))
 			{
-				page = book.GetPageImage(i);
+				page = book.ReadPage(i);
 				pageCache[i] = page;
 			}
 
@@ -205,15 +202,9 @@ internal sealed class ScrollModeController
 		if (pageCache.Count == 0)
 			return;
 
-		var removeKeys = new List<int>();
-		foreach (var key in pageCache.Keys)
-		{
-			if (key < first || key > last)
-				removeKeys.Add(key);
-		}
-
+		var removeKeys = pageCache.Keys.Where(key => key < first || key > last).ToList();
 		foreach (var key in removeKeys)
-           pageCache.Remove(key);
+			pageCache.Remove(key);
 	}
 
 	public bool TryBeginDrag(PointerPressedEventArgs e)
@@ -241,7 +232,7 @@ internal sealed class ScrollModeController
 		return true;
 	}
 
-	public bool TryDrag(PointerEventArgs e)
+	public bool TryDragging(PointerEventArgs e)
 	{
 		if (!_isDragging)
 			return false;

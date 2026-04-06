@@ -7,15 +7,14 @@ using Avalonia.Interactivity;
 namespace DgRead.Dowa;
 
 /// <summary>
-/// Reader 화면의 Zoom/Pan/Scroll(ZPS) 입력과 레이아웃을 관리합니다.
+/// 읽기 윈도우 Zoom/Pan/Scroll(ZPS) 입력과 레이아웃을 관리합니다.
 /// </summary>
-internal sealed class ZpsController
+internal sealed class ReadZpsController
 {
 	private readonly ScrollViewer _viewer;
 	private readonly Image _leftImage;
 	private readonly Image _rightImage;
-	private bool _twoPageMode;
-	private bool _zoomModeActive;
+	private bool _viewTwoPage;
 
 	private bool _isPanning;
 	private bool _isRightMouseDown;
@@ -23,9 +22,9 @@ internal sealed class ZpsController
 	private Vector _panStartOffset;
 
 	public double ZoomRatio { get; private set; } = 1.0;
-	public bool IsZoomed => _zoomModeActive;
+	public bool IsZoomed { get; private set; }
 
-	public ZpsController(ScrollViewer viewer, Image leftImage, Image rightImage)
+	public ReadZpsController(ScrollViewer viewer, Image leftImage, Image rightImage)
 	{
 		_viewer = viewer;
 		_leftImage = leftImage;
@@ -40,42 +39,34 @@ internal sealed class ZpsController
 		_viewer.AddHandler(InputElement.PointerMovedEvent, OnPointerMoved, RoutingStrategies.Tunnel, true);
 	}
 
-	public void SetTwoPageMode(bool value)
+	public void SetViewTwoPage(bool value)
 	{
-		_twoPageMode = value;
+		_viewTwoPage = value;
 		ApplyLayout();
 	}
 
-	public bool HandleZoomHotkeys(KeyEventArgs e)
+	public bool HandleKeyDown(KeyEventArgs e)
 	{
-		if (e.Key is Key.Add or Key.OemPlus)
+		switch (e.Key)
 		{
-			_zoomModeActive = true;
-			SetZoom(ZoomRatio * 1.1);
-			return true;
+			case Key.Add or Key.OemPlus:
+				IsZoomed = true;
+				SetZoom(ZoomRatio * 1.1);
+				return true;
+			case Key.Subtract or Key.OemMinus:
+				IsZoomed = true;
+				SetZoom(ZoomRatio / 1.1);
+				return true;
+			case Key.Divide or Key.Oem2 when IsZoomed:
+				SetZoom(1.0, fitToViewport: true);
+				IsZoomed = false;
+				return true;
+			case Key.D0 when IsZoomed:
+				SetZoom(1.0, fitToViewport: false);
+				return true;
+			default:
+				return false;
 		}
-
-		if (e.Key is Key.Subtract or Key.OemMinus)
-		{
-			_zoomModeActive = true;
-			SetZoom(ZoomRatio / 1.1);
-			return true;
-		}
-
-		if (IsZoomed && e.Key is Key.Divide or Key.Oem2)
-		{
-			SetZoom(1.0, fitToViewport: true);
-			_zoomModeActive = false;
-			return true;
-		}
-
-		if (IsZoomed && e.Key == Key.D0)
-		{
-			SetZoom(1.0, fitToViewport: false);
-			return true;
-		}
-
-		return false;
 	}
 
 	public bool TryPanByKeyboard(double dx, double dy)
@@ -100,7 +91,7 @@ internal sealed class ZpsController
 		var viewH = Math.Max(100, _viewer.Bounds.Height - 8);
 		var scale = IsZoomed ? ZoomRatio : 1.0;
 
-		if (_twoPageMode)
+		if (_viewTwoPage)
 		{
 			var eachWidth = Math.Max(50, (viewW - 6) / 2d) * scale;
 			_leftImage.MaxWidth = eachWidth;
@@ -120,7 +111,7 @@ internal sealed class ZpsController
 
 	public void ResetZoom()
 	{
-		_zoomModeActive = false;
+		IsZoomed = false;
 		ZoomRatio = 1.0;
 		_viewer.Offset = default;
 		ApplyLayout();
@@ -134,7 +125,7 @@ internal sealed class ZpsController
 
 	public void ZoomByFactor(double factor)
 	{
-		_zoomModeActive = true;
+		IsZoomed = true;
 		SetZoom(ZoomRatio * factor);
 	}
 
@@ -144,7 +135,7 @@ internal sealed class ZpsController
 		if (!zoomWheel)
 			return false;
 
-		_zoomModeActive = true;
+		IsZoomed = true;
 		var factor = e.Delta.Y > 0 ? 1.1 : 1 / 1.1;
 		SetZoom(ZoomRatio * factor);
 		e.Handled = true;

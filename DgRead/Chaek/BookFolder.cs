@@ -13,7 +13,7 @@ public sealed class BookFolder : BookBase
 	private readonly DirectoryInfo _directory;
 
 	/// <inheritdoc />
-	public override bool SupportsMultiPageModes => false;
+	public override bool SupportsMultiPages => false;
 
 	/// <summary>
 	/// 폴더 책을 생성합니다.
@@ -70,22 +70,86 @@ public sealed class BookFolder : BookBase
 	/// <inheritdoc />
 	public override bool CanDeleteFile(out string? reason)
 	{
-		reason = T("Folder mode does not support deleting the source directly");
-		return false;
+		reason = null;
+		if (TotalPage <= 0)
+		{
+			reason = T("[No book opened]");
+			return false;
+		}
+
+		if (Entries[CurrentPage] is not FileInfo)
+		{
+			reason = T("Failed to delete file");
+			return false;
+		}
+
+		return true;
 	}
 
 	/// <inheritdoc />
 	public override bool DeleteFile(out bool closeBook)
 	{
 		closeBook = false;
-		return false;
+		if (Entries.Count == 0 || CurrentPage < 0 || CurrentPage >= Entries.Count)
+			return false;
+
+		if (Entries[CurrentPage] is not FileInfo fi)
+			return false;
+
+		var nextPage = CurrentPage < Entries.Count - 1 ? CurrentPage : CurrentPage - 1;
+		try
+		{
+			fi.Delete();
+			LoadEntries();
+			InvalidateCaches();
+			if (Entries.Count == 0)
+			{
+				closeBook = true;
+				return true;
+			}
+
+			_ = MovePage(nextPage);
+			return true;
+		}
+		catch
+		{
+			return false;
+		}
 	}
 
 	/// <inheritdoc />
 	public override bool RenameFile(string newFilename, out string fullPath)
 	{
-		fullPath = FullName;
-		return false;
+        fullPath = FullName;
+		if (Entries.Count == 0 || CurrentPage < 0 || CurrentPage >= Entries.Count)
+			return false;
+
+		if (Entries[CurrentPage] is not FileInfo current)
+			return false;
+
+		if (string.IsNullOrWhiteSpace(newFilename))
+			return false;
+
+		var target = Path.Combine(_directory.FullName, newFilename.Trim());
+		if (current.FullName.Equals(target, StringComparison.OrdinalIgnoreCase))
+			return true;
+
+		if (File.Exists(target))
+			return false;
+
+		try
+		{
+			File.Move(current.FullName, target);
+			LoadEntries(Path.GetFileName(target));
+			InvalidateCaches();
+			SetFileName(new FileInfo(target));
+			fullPath = target;
+			return true;
+		}
+		catch
+		{
+			return false;
+		}
 	}
 
 	/// <inheritdoc />
@@ -119,11 +183,19 @@ public sealed class BookFolder : BookBase
 		if (idx < 0)
 			return null;
 
-		var nextIdx = direction == BookDirection.Next ? idx + 1 : idx - 1;
-		if (nextIdx < 0 || nextIdx >= dirs.Count)
-			return null;
+		var next = direction == BookDirection.Next ? idx + 1 : idx - 1;
+		if (next < 0)
+		{
+			// 첫번째였다면 마지막꺼 반환
+			next = dirs.Count - 1;
+		}
+		else if (next >= dirs.Count)
+		{
+			// 마지막이었다면 첫번째꺼 반환
+			next = 0;
+		}
 
-		return dirs[nextIdx].FullName;
+		return dirs[next].FullName;
 	}
 
 	/// <inheritdoc />
@@ -150,7 +222,7 @@ public sealed class BookFolder : BookBase
 	private void LoadEntries(string? initialName = null)
 	{
 		var files = _directory.GetFiles()
-			.Where(x => BookImageDecoder.IsSupported(x.Name))
+			.Where(x => PageDecoder.IsSupported(x.Name))
 			.OrderBy(x => x, new Doumi.FileInfoComparer())
 			.ToList();
 

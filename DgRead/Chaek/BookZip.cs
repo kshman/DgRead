@@ -31,7 +31,7 @@ public sealed class BookZip : BookBase
 		_zip = new ZipArchive(_stream, ZipArchiveMode.Read);
 
 		var entries = _zip.Entries
-			.Where(x => !string.IsNullOrEmpty(x.Name) && BookImageDecoder.IsSupported(x.Name))
+			.Where(x => !string.IsNullOrEmpty(x.Name) && PageDecoder.IsSupported(x.Name))
 			.OrderBy(x => x, new ZipArchiveEntryComparer())
 			.Cast<object>()
 			.ToList();
@@ -90,8 +90,8 @@ public sealed class BookZip : BookBase
 		try
 		{
 			var target = Path.Combine(_zipFile.DirectoryName ?? string.Empty, newFilename);
-			if (!target.EndsWith(".zip", StringComparison.OrdinalIgnoreCase))
-				target += ".zip";
+           if (string.IsNullOrWhiteSpace(Path.GetExtension(target)))
+				target += _zipFile.Extension;
 
 			Dispose();
 			File.Move(FullName, target);
@@ -129,15 +129,27 @@ public sealed class BookZip : BookBase
 		var files = dir.GetFiles("*.zip")
 			.OrderBy(x => x.Name, StringComparer.OrdinalIgnoreCase)
 			.ToList();
+
+		if (files.Count <= 1)
+			return null;
+
 		var idx = files.FindIndex(x => x.FullName.Equals(_zipFile.FullName, StringComparison.OrdinalIgnoreCase));
 		if (idx < 0)
 			return null;
 
-		var nextIdx = direction == BookDirection.Next ? idx + 1 : idx - 1;
-		if (nextIdx < 0 || nextIdx >= files.Count)
-			return null;
+		var next = direction == BookDirection.Next ? idx + 1 : idx - 1;
+		if (next < 0)
+		{
+			// 첫번째였다면 마지막꺼 반환
+			next = files.Count - 1;
+		}
+		else if (next >= files.Count)
+		{
+			// 마지막이었다면 첫번째꺼 반환
+			next = 0;
+		}
 
-		return files[nextIdx].FullName;
+		return files[next].FullName;
 	}
 
 	public override string? FindRandomFile()

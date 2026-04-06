@@ -192,7 +192,7 @@ public partial class PageWindow : Window
 		PageInfoTextBlock.Text = T("[No Book]");
 	}
 
-	public Task<int> ShowForPageAsync(Window owner, int page)
+	public Task<int> ShowAsync(Window owner, int page)
 	{
 		if (_items.Count == 0)
 			return Task.FromResult(-1);

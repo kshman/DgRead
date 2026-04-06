@@ -8,12 +8,12 @@ using Avalonia.Platform;
 using SixLabors.ImageSharp;
 using SixLabors.ImageSharp.PixelFormats;
 
-namespace DgRead.Chaek;
+namespace DgRead.Dowa;
 
 /// <summary>
 /// 이미지 데이터 디코딩 도우미입니다.
 /// </summary>
-internal static class BookImageDecoder
+internal static class PageDecoder
 {
 	private enum DetectedType
 	{
