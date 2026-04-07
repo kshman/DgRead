@@ -551,14 +551,12 @@ public partial class ReadWindow : Window
 					handled = false;
 				break;
 
-			case Key.B:
-				if (e.KeyModifiers.HasFlag(KeyModifiers.Control))
-					_ = AddBookmarkAsync();
-				else
-					handled = false;
+			case Key.F9:
+				_ = AddBookmarkAsync();
+				handled = false;
 				break;
 
-			case Key.F9:
+			case Key.F10:
 				_ = OpenBookmarkWindowAsync();
 				break;
 
