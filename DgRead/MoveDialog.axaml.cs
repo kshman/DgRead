@@ -30,10 +30,11 @@ public partial class MoveDialog : Window
 	private readonly ObservableCollection<MoveDialogItem> _items = [];
 	private bool _refreshing;
 	private bool _modified;
-	private string _fileName = string.Empty;
+	private string? _fileName;
 	private string? _resultPath;
 	private Point? _dragStartPoint;
 	private MoveDialogItem? _dragStartItem;
+	private PointerPressedEventArgs? _dragStartArgs;
 
 	private const string MoveDragPrefix = "dgread-move-folder:";
 
@@ -79,7 +80,7 @@ public partial class MoveDialog : Window
 		FocusMoveListLater();
 	}
 
-	public async Task<string?> ShowAsync(Window owner, string fileName)
+	public async Task<string?> ShowAsync(Window owner, string? fileName)
 	{
 		_fileName = fileName;
 		_resultPath = null;
@@ -124,6 +125,9 @@ public partial class MoveDialog : Window
 
 		UpdateSelectionUiState();
 		_refreshing = false;
+
+		if (string.IsNullOrEmpty(_fileName))
+			OkButton.IsEnabled = false;
 	}
 
 	private bool EnsureFolder(string folder)
@@ -196,7 +200,7 @@ public partial class MoveDialog : Window
 		}
 		catch (Exception ex)
 		{
-			await SuppUi.OkAsync($"{T("Failed to open folder")}{Environment.NewLine}{ex.Message}", T("Error"));
+			await SuppUi.OkAsync(this, $"{T("Failed to open folder")}{Environment.NewLine}{ex.Message}", T("Error"));
 		}
 	}
 
@@ -210,7 +214,7 @@ public partial class MoveDialog : Window
 
 			if (!Directory.Exists(folder))
 			{
-				await SuppUi.OkAsync($"{T("The specified directory does not exist")}{Environment.NewLine}{folder}", T("Error"));
+				await SuppUi.OkAsync(this, $"{T("The specified directory does not exist")}{Environment.NewLine}{folder}", T("Error"));
 				return;
 			}
 
@@ -225,7 +229,7 @@ public partial class MoveDialog : Window
 			switch (added)
 			{
 				case 1:
-					await SuppUi.OkAsync(T("Failed to add the location"), T("Error"));
+					await SuppUi.OkAsync(this, T("Failed to add the location"), T("Error"));
 					return;
 				case 2:
 					EnsureFolder(folder);
@@ -238,7 +242,7 @@ public partial class MoveDialog : Window
 		}
 		catch (Exception ex)
 		{
-			await SuppUi.OkAsync($"{T("Failed to add the location")}{Environment.NewLine}{ex.Message}", T("Error"));
+			await SuppUi.OkAsync(this, $"{T("Failed to add the location")}{Environment.NewLine}{ex.Message}", T("Error"));
 		}
 	}
 
@@ -249,7 +253,7 @@ public partial class MoveDialog : Window
 			if (!TryGetSelected(out var selectedIndex, out _))
 				return;
 
-			if (!await SuppUi.YesNoAsync(T("Delete selected location?"), T("Confirm")))
+			if (!await SuppUi.YesNoAsync(this, T("Delete selected location?"), T("Confirm")))
 				return;
 
 			Configs.DeleteMove(selectedIndex);
@@ -260,7 +264,7 @@ public partial class MoveDialog : Window
 		}
 		catch (Exception ex)
 		{
-			await SuppUi.OkAsync($"{T("Delete location")}{Environment.NewLine}{ex.Message}", T("Error"));
+			await SuppUi.OkAsync(this, $"{T("Delete location")}{Environment.NewLine}{ex.Message}", T("Error"));
 		}
 	}
 
@@ -333,13 +337,14 @@ public partial class MoveDialog : Window
 	{
 		_dragStartPoint = e.GetPosition(MoveListBox);
 		_dragStartItem = TryGetItemFromEventSource(e.Source, out _, out var item) ? item : null;
+		_dragStartArgs = e;
 	}
 
 	private async void OnMoveListPointerMoved(object? sender, PointerEventArgs e)
 	{
 		try
 		{
-			if (_dragStartPoint is null || _dragStartItem is null)
+			if (_dragStartPoint is null || _dragStartItem is null || _dragStartArgs is null)
 				return;
 
 			if (!e.GetCurrentPoint(MoveListBox).Properties.IsLeftButtonPressed)
@@ -355,13 +360,14 @@ public partial class MoveDialog : Window
 
 			var data = new DataTransfer();
 			data.Add(DataTransferItem.Create(DataFormat.Text, $"{MoveDragPrefix}{_dragStartItem.Folder}"));
-			await DragDrop.DoDragDropAsync(e, data, DragDropEffects.Move);
+			await DragDrop.DoDragDropAsync(_dragStartArgs, data, DragDropEffects.Move);
 		}
 		catch { /* 무시 */ }
 		finally
 		{
 			_dragStartPoint = null;
 			_dragStartItem = null;
+			_dragStartArgs = null;
 		}
 	}
 
@@ -424,7 +430,7 @@ public partial class MoveDialog : Window
 		}
 		catch (Exception ex)
 		{
-			await SuppUi.OkAsync($"{T("Move book")}{Environment.NewLine}{ex.Message}", T("Error"));
+			await SuppUi.OkAsync(this, $"{T("Move book")}{Environment.NewLine}{ex.Message}", T("Error"));
 		}
 	}
 
@@ -432,14 +438,20 @@ public partial class MoveDialog : Window
 	{
 		if (TryGetSelected(out _, out var selectedItem) && !selectedItem.Enabled)
 		{
-			await SuppUi.OkAsync(T("The selected location is unavailable"), T("Error"));
+			await SuppUi.OkAsync(this, T("The selected location is unavailable"), T("Error"));
 			return;
 		}
 
 		var folder = selectedItem?.Folder ?? (DestTextBox.Text?.Trim() ?? string.Empty);
 		if (!Directory.Exists(folder))
 		{
-			await SuppUi.OkAsync($"{T("The specified directory does not exist")}{Environment.NewLine}{folder}", T("Error"));
+			await SuppUi.OkAsync(this, $"{T("The specified directory does not exist")}{Environment.NewLine}{folder}", T("Error"));
+			return;
+		}
+
+		if (_fileName == null)
+		{
+			Close(false);
 			return;
 		}
 
@@ -541,7 +553,7 @@ public partial class MoveDialog : Window
 
 	private bool IsTextInputFocused()
 	{
-		var focused = TopLevel.GetTopLevel(this)?.FocusManager?.GetFocusedElement();
+		var focused = TopLevel.GetTopLevel(this)?.FocusManager.GetFocusedElement();
 		return focused is TextBox || (focused as Visual)?.GetSelfAndVisualAncestors().OfType<TextBox>().Any() == true;
 	}
 

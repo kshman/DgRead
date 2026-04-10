@@ -85,3 +85,7 @@
 "Failed to add bookmark" = "책갈피 추가에 실패했습니다"
 "Failed to delete bookmark" = "책갈피 삭제에 실패했습니다"
 "Failed to open bookmark manager" = "책갈피 관리 창을 열지 못했습니다"
+"Yes" = "예"
+"No" = "아니요"
+"Cancel" = "취소"
+"OK" = "확인"

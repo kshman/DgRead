@@ -595,6 +595,7 @@ public partial class ReadWindow : Window
 			// 기능
 			case Key.F11:
 #if DEBUG
+				_ = SuppUi.OkAsync(this, "테스트 입니다", "테스트");
 				Notify("알림 메시지 테스트이와요~");
 #endif
 				break;
@@ -1181,20 +1182,16 @@ public partial class ReadWindow : Window
 	{
 		try
 		{
-			var book = _book;
-			if (book == null)
-				return;
-
 			_pressedKeys.Clear();
 			_keyHoldTimer.Stop();
 
 			var dlg = new MoveDialog();
-			var dest = await dlg.ShowAsync(this, book.FileName);
-			if (string.IsNullOrWhiteSpace(dest))
+			var dest = await dlg.ShowAsync(this, _book?.FileName);
+			if (_book == null || string.IsNullOrWhiteSpace(dest))
 				return;
 
-			var next = book.FindNextFile(BookDirection.Next);
-			if (!book.MoveFile(dest))
+			var next = _book.FindNextFile(BookDirection.Next);
+			if (!_book.MoveFile(dest))
 			{
 				Notify(T("Failed to move book/file"), 5000);
 				return;
@@ -1287,7 +1284,7 @@ public partial class ReadWindow : Window
 			if (Configs.FileConfirmDelete)
 			{
 				var fileName = book is BookZip ? book.DisplayName : book.GetEntryName(book.CurrentPage) ?? book.DisplayName;
-				var ok = await SuppUi.YesNoAsync($"{fileName}{Environment.NewLine}{Environment.NewLine}{T("Delete this file?")}", T("Confirm"));
+				var ok = await SuppUi.YesNoAsync(this, $"{fileName}{Environment.NewLine}{Environment.NewLine}{T("Delete this file?")}", T("Confirm"));
 				if (!ok)
 					return;
 			}
@@ -1389,6 +1386,14 @@ public partial class ReadWindow : Window
 		_notifyTimer.Stop();
 		_notifyTimer.Interval = TimeSpan.FromMilliseconds(Math.Max(1, duration));
 		_notifyTimer.Start();
+	}
+
+	private void ResetNotify()
+	{
+		NotifyTextBlock.Text = string.Empty;
+		NotifyBorder.IsVisible = false;
+
+		_notifyTimer.Stop();
 	}
 
 	/// <summary>
@@ -1628,7 +1633,7 @@ public partial class ReadWindow : Window
 
 		if (Configs.TryGetBookmark(path, page, out var exists) && exists != null)
 		{
-			var remove = await SuppUi.YesNoAsync(
+			var remove = await SuppUi.YesNoAsync(this,
 				$"{book.DisplayName} ({page + 1}){Environment.NewLine}{Environment.NewLine}{T("Bookmark already exists. Delete it?")}",
 				T("Confirm"));
 			if (!remove)
@@ -1736,6 +1741,7 @@ public partial class ReadWindow : Window
 			_book = null;
 		}
 
+		ResetNotify();
 		_pageWindow.ResetBook();
 		UpdateTitleText();
 		SetViewModeIcon(ViewMode.Single);
@@ -1786,7 +1792,12 @@ public partial class ReadWindow : Window
 			book.MovePage(Configs.GetHistory(book.FileName)); // 최근 파일은 파일 이름만 조회한다
 			book.PrepareImages();
 
-			_book?.Dispose();
+			if (_book != null)
+			{
+				Configs.SetHistory(_book.FileName, _book.CurrentPage);
+				_book.Dispose();
+				ResetNotify();
+			}
 			_book = book;
 
 			_zps.ResetZoom();

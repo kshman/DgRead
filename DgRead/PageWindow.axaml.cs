@@ -88,8 +88,8 @@ public partial class PageWindow : Window
 		}
 	}
 
-	private void OnPageListDoubleTapped(object? sender, RoutedEventArgs e) =>
-		CompleteSelection(GetSelectedPage());
+	private void OnPageListDoubleTapped(object? sender, TappedEventArgs e) =>
+		 CompleteSelection(GetSelectedPage());
 
 	private int GetSelectedPage()
 	{

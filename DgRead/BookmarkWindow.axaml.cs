@@ -129,8 +129,8 @@ internal partial class BookmarkWindow : Window
 		}, DispatcherPriority.Background);
 	}
 
-	private void OnBookmarkListDoubleTapped(object? sender, RoutedEventArgs e) =>
-		CompleteWithSelection();
+	private void OnBookmarkListDoubleTapped(object? sender, TappedEventArgs e) =>
+		 CompleteWithSelection();
 
 	private async void OnCheckFilesClick(object? sender, RoutedEventArgs e)
 	{
@@ -140,7 +140,7 @@ internal partial class BookmarkWindow : Window
 		}
 		catch (Exception ex)
 		{
-			await SuppUi.OkAsync($"{T("Check bookmark files")}{Environment.NewLine}{ex.Message}", T("Error"));
+			await SuppUi.OkAsync(this, $"{T("Check bookmark files")}{Environment.NewLine}{ex.Message}", T("Error"));
 		}
 	}
 
@@ -151,7 +151,7 @@ internal partial class BookmarkWindow : Window
 
 		if (_items.Count >= 50)
 		{
-			var ok = await SuppUi.YesNoAsync(T("There are 50+ bookmarks and it may take some time. Continue?"), T("Confirm"));
+			var ok = await SuppUi.YesNoAsync(this, T("There are 50+ bookmarks and it may take some time. Continue?"), T("Confirm"));
 			if (!ok)
 				return;
 		}
@@ -231,7 +231,7 @@ internal partial class BookmarkWindow : Window
 		if (BookmarkListBox.SelectedItem is not BookmarkListItem selected)
 			return;
 
-		var ok = await SuppUi.YesNoAsync(
+		var ok = await SuppUi.YesNoAsync(this,
 			$"{selected.FileName} ({selected.PageText}){Environment.NewLine}{Environment.NewLine}{T("Delete selected bookmark?")}",
 			T("Confirm"));
 		if (!ok)
@@ -239,7 +239,7 @@ internal partial class BookmarkWindow : Window
 
 		if (!Configs.RemoveBookmark(selected.Id))
 		{
-			await SuppUi.OkAsync(T("Failed to delete bookmark"), T("Error"));
+			await SuppUi.OkAsync(this, T("Failed to delete bookmark"), T("Error"));
 			return;
 		}
 

@@ -9,9 +9,8 @@
         MinHeight="350"
         Icon="avares://DgRead/Assets/DgRead-48.png"
         ExtendClientAreaToDecorationsHint="True"
-        ExtendClientAreaChromeHints="NoChrome"
         ExtendClientAreaTitleBarHeightHint="-1"
-        SystemDecorations="Full"
+        WindowDecorations="None"
         DragDrop.AllowDrop="True"
         DragDrop.DragOver="OnDragOverEvent"
         DragDrop.Drop="OnDropEvent">

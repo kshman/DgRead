@@ -79,13 +79,13 @@ internal static class Configs
 				if (conn.ExecuteSql(query))
 					continue;
 				Debug.WriteLine($"쿼리 실패: {query}");
-				_ = SuppUi.OkAsync(T("Failed to create config file!"), T("Error"));
+				_ = SuppUi.OkAsync(null, T("Failed to create config file!"), T("Error"));
 				return false;
 			}
 		}
 		catch (Exception e)
 		{
-			_ = SuppUi.OkAsync($"{T("Failed to access config file!")}{Environment.NewLine}{Environment.NewLine}{e.Message}", T("Error"));
+			_ = SuppUi.OkAsync(null, $"{T("Failed to access config file!")}{Environment.NewLine}{Environment.NewLine}{e.Message}", T("Error"));
 			return false;
 		}
 
@@ -599,12 +599,8 @@ internal static class Configs
 		if (string.IsNullOrWhiteSpace(path) || page < 0)
 			return false;
 
-		for (var i = 0; i < sBookmarks.Count; i++)
+		foreach (var bm in sBookmarks.Where(bm => bm.Path.Equals(path, StringComparison.OrdinalIgnoreCase) && bm.Page == page))
 		{
-			var bm = sBookmarks[i];
-			if (!bm.Path.Equals(path, StringComparison.OrdinalIgnoreCase) || bm.Page != page)
-				continue;
-
 			bookmark = bm;
 			return true;
 		}
