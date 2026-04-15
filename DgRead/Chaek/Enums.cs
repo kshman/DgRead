@@ -71,18 +71,14 @@ public enum BookControl
 	First,
 	/// <summary>마지막 장</summary>
 	Last,
-	/// <summary>이전 10쪽</summary>
-	SeekPrevious10,
-	/// <summary>다음 10쪽</summary>
-	SeekNext10,
+	/// <summary>이전 설정 단위 쪽</summary>
+	PreviousJump,
+	/// <summary>다음 설정 단위 쪽</summary>
+	NextJump,
 	/// <summary>이전 1쪽</summary>
-	SeekMinusOne,
+	MinusOne,
 	/// <summary>다음 1쪽</summary>
-	SeekPlusOne,
-	/// <summary>이전 1장으로</summary>
-	ScanPrevious,
-	/// <summary>다음 1장으로</summary>
-	ScanNext,
+	PlusOne,
 	/// <summary>쪽 선택</summary>
 	Select,
 }

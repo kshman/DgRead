@@ -129,6 +129,15 @@ internal sealed class ReadZpsController
 		SetZoom(ZoomRatio * factor);
 	}
 
+	public void EnterZoomMode()
+	{
+		if (IsZoomed)
+			return;
+
+		IsZoomed = true;
+		SetZoom(ZoomRatio, fitToViewport: false);
+	}
+
 	public bool HandleWheelAsZoom(PointerWheelEventArgs e)
 	{
 		var zoomWheel = IsZoomed || e.KeyModifiers.HasFlag(KeyModifiers.Shift) || _isRightMouseDown;

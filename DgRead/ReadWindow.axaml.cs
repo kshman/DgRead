@@ -38,6 +38,9 @@ public partial class ReadWindow : Window
 	private readonly Dictionary<int, PageImage> _scrollPageCache = [];
 	private readonly HashSet<Key> _pressedKeys = [];
 
+	private readonly HashSet<string> _randomOpened = new(StringComparer.OrdinalIgnoreCase);
+	private string _randomScope = string.Empty;
+
 	private int _keyHoldTick;
 	private int _keyHoldCount;
 
@@ -402,14 +405,14 @@ public partial class ReadWindow : Window
 				if (viewScroll)
 					break;
 				if (!_zps.TryPanByKeyboard(0, -80))
-					PageControl(BookControl.SeekMinusOne);
+					PageControl(BookControl.MinusOne);
 				break;
 
 			case Key.Down:
 				if (viewScroll)
 					break;
 				if (!_zps.TryPanByKeyboard(0, 80))
-					PageControl(BookControl.SeekPlusOne);
+					PageControl(BookControl.PlusOne);
 				break;
 
 			case Key.Left:
@@ -418,7 +421,7 @@ public partial class ReadWindow : Window
 				if (!_zps.TryPanByKeyboard(-80, 0))
 				{
 					PageControl(e.KeyModifiers.HasFlag(KeyModifiers.Shift)
-						? BookControl.SeekMinusOne
+					  ? BookControl.MinusOne
 						: BookControl.Previous);
 				}
 				break;
@@ -429,19 +432,19 @@ public partial class ReadWindow : Window
 				if (!_zps.TryPanByKeyboard(80, 0))
 				{
 					PageControl(e.KeyModifiers.HasFlag(KeyModifiers.Shift)
-						? BookControl.SeekPlusOne
+					   ? BookControl.PlusOne
 						: BookControl.Next);
 				}
 				break;
 
 			// 페이지
 			case Key.OemComma:
-				PageControl(BookControl.SeekMinusOne);
+				PageControl(BookControl.MinusOne);
 				break;
 
 			case Key.OemPeriod:
 			case Key.Oem2:
-				PageControl(BookControl.SeekPlusOne);
+				PageControl(BookControl.PlusOne);
 				break;
 
 			case Key.NumPad0:
@@ -468,11 +471,11 @@ public partial class ReadWindow : Window
 					MaybeVirtualizeScroll();
 				}
 				else if (_zps.IsZoomed)
-					PageControl(BookControl.SeekMinusOne);
+					PageControl(BookControl.Previous);
 				else if (e.KeyModifiers.HasFlag(KeyModifiers.Control))
 					OpenPrevBook();
 				else
-					PageControl(BookControl.SeekPrevious10);
+					PageControl(BookControl.PreviousJump);
 				break;
 
 			case Key.PageDown:
@@ -486,15 +489,15 @@ public partial class ReadWindow : Window
 					MaybeVirtualizeScroll();
 				}
 				else if (_zps.IsZoomed)
-					PageControl(BookControl.SeekPlusOne);
+					PageControl(BookControl.Next);
 				else if (e.KeyModifiers.HasFlag(KeyModifiers.Control))
 					OpenNextBook();
 				else
-					PageControl(BookControl.SeekNext10);
+					PageControl(BookControl.NextJump);
 				break;
 
 			case Key.Back:
-				PageControl(BookControl.SeekNext10);
+				PageControl(BookControl.NextJump);
 				break;
 
 			case Key.Enter:
@@ -510,6 +513,10 @@ public partial class ReadWindow : Window
 			// 보기
 			case Key.F:
 				ToggleFullscreen();
+				break;
+
+			case Key.F8:
+				_zps.EnterZoomMode();
 				break;
 
 			case Key.Oem3: // `~ 키
@@ -553,11 +560,19 @@ public partial class ReadWindow : Window
 
 			case Key.F9:
 				_ = AddBookmarkAsync();
-				handled = false;
 				break;
 
 			case Key.F10:
 				_ = OpenBookmarkWindowAsync();
+				break;
+
+			case Key.P:
+				if (e.KeyModifiers.HasFlag(KeyModifiers.Control))
+					_ = OpenBookmarkWindowAsync();
+				else if (e.KeyModifiers == KeyModifiers.None)
+					_ = AddBookmarkAsync();
+				else
+					handled = false;
 				break;
 
 			case Key.BrowserBack:
@@ -1122,10 +1137,10 @@ public partial class ReadWindow : Window
 			BookControl.Next => book.MoveNext(),
 			BookControl.First => book.MovePage(0),
 			BookControl.Last => book.MovePage(book.TotalPage - 1),
-			BookControl.SeekPrevious10 => book.MovePage(book.CurrentPage - 10),
-			BookControl.SeekNext10 => book.MovePage(book.CurrentPage + 10),
-			BookControl.SeekMinusOne => book.MovePage(book.CurrentPage - 1),
-			BookControl.SeekPlusOne => book.MovePage(book.CurrentPage + 1),
+			BookControl.PreviousJump => book.MovePage(book.CurrentPage - Configs.PageJumpCount),
+			BookControl.NextJump => book.MovePage(book.CurrentPage + Configs.PageJumpCount),
+			BookControl.MinusOne => book.MovePage(book.CurrentPage - 1),
+			BookControl.PlusOne => book.MovePage(book.CurrentPage + 1),
 			BookControl.Select => book.MovePage(book.CurrentPage),
 			_ => false
 		};
@@ -1168,11 +1183,123 @@ public partial class ReadWindow : Window
 	/// </summary>
 	private void OpenRandomBook()
 	{
-		if (_book == null)
+		var book = _book;
+		if (book == null)
 			return;
 
-		var next = _book.FindRandomFile();
+		var currentItem = GetRandomCurrentItem(book);
+		var scope = GetRandomScope(book);
+		var candidates = GetRandomCandidates(book, currentItem);
+
+		if (string.IsNullOrWhiteSpace(scope) || candidates.Count == 0)
+		{
+			var fallback = book.FindRandomFile();
+			OpenBook(fallback);
+			return;
+		}
+
+		if (!scope.Equals(_randomScope, StringComparison.OrdinalIgnoreCase))
+		{
+			_randomScope = scope;
+			_randomOpened.Clear();
+		}
+
+		if (!string.IsNullOrWhiteSpace(currentItem))
+			_randomOpened.Add(currentItem);
+
+		var unvisited = candidates.Where(path => !_randomOpened.Contains(path)).ToList();
+		if (unvisited.Count == 0)
+		{
+			_randomOpened.Clear();
+			if (!string.IsNullOrWhiteSpace(currentItem))
+				_randomOpened.Add(currentItem);
+
+			unvisited = candidates.Where(path => !_randomOpened.Contains(path)).ToList();
+			if (unvisited.Count == 0)
+				return;
+		}
+
+		var next = unvisited[Random.Shared.Next(unvisited.Count)];
+		_randomOpened.Add(next);
 		OpenBook(next);
+	}
+
+	private static string GetRandomCurrentItem(BookBase book)
+	{
+		if (book is BookZip)
+			return book.FullName;
+
+		if (book is not BookFolder)
+			return book.FullName;
+
+		if (Directory.Exists(book.FullName))
+			return book.FullName;
+
+		if (File.Exists(book.FullName))
+			return Path.GetDirectoryName(book.FullName) ?? string.Empty;
+
+		return book.FullName;
+	}
+
+	private static string GetRandomScope(BookBase book)
+	{
+		if (book is BookZip)
+			return Path.GetDirectoryName(book.FullName) ?? string.Empty;
+
+		if (book is not BookFolder)
+			return string.Empty;
+
+		var dirPath = Directory.Exists(book.FullName)
+			? book.FullName
+			: File.Exists(book.FullName)
+				? Path.GetDirectoryName(book.FullName)
+				: null;
+
+		if (string.IsNullOrWhiteSpace(dirPath))
+			return string.Empty;
+
+		return Directory.GetParent(dirPath)?.FullName ?? string.Empty;
+	}
+
+	private static List<string> GetRandomCandidates(BookBase book, string currentItem)
+	{
+		if (book is BookZip)
+		{
+			var dirPath = Path.GetDirectoryName(book.FullName);
+			if (string.IsNullOrWhiteSpace(dirPath) || !Directory.Exists(dirPath))
+				return [];
+
+			var dir = new DirectoryInfo(dirPath);
+			var items = dir.GetFiles("*.zip")
+				.Select(f => f.FullName)
+				.Where(path => !path.Equals(currentItem, StringComparison.OrdinalIgnoreCase))
+				.ToList();
+
+			return items;
+		}
+
+		if (book is not BookFolder)
+			return [];
+
+		var dirPathForBook = Directory.Exists(book.FullName)
+			? book.FullName
+			: File.Exists(book.FullName)
+				? Path.GetDirectoryName(book.FullName)
+				: null;
+
+		if (string.IsNullOrWhiteSpace(dirPathForBook))
+			return [];
+
+		var parent = Directory.GetParent(dirPathForBook);
+		if (parent == null || !parent.Exists)
+			return [];
+
+		var itemsForFolder = parent.GetDirectories()
+			.Select(d => d.FullName)
+			.Where(path => !path.Equals(currentItem, StringComparison.OrdinalIgnoreCase))
+			.ToList();
+
+		return itemsForFolder;
 	}
 
 	/// <summary>
@@ -1799,6 +1926,17 @@ public partial class ReadWindow : Window
 				ResetNotify();
 			}
 			_book = book;
+
+			var scope = GetRandomScope(book);
+			if (!scope.Equals(_randomScope, StringComparison.OrdinalIgnoreCase))
+			{
+				_randomScope = scope;
+				_randomOpened.Clear();
+			}
+
+			var currentItem = GetRandomCurrentItem(book);
+			if (!string.IsNullOrWhiteSpace(currentItem))
+				_randomOpened.Add(currentItem);
 
 			_zps.ResetZoom();
 			_pageWindow.SetBook(book);

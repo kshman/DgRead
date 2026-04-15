@@ -44,6 +44,7 @@ internal static class Configs
 	private static ViewAlign sViewAlign = ViewAlign.Center;
 	private static ViewQuality sViewQuality = ViewQuality.Default;
 	private static int sViewMargin = 100;
+	private static int sPageJumpCount = 10;
 
 	private static readonly List<MoveInfo> sMoves = [];
 	private static readonly List<BookmarkInfo> sBookmarks = [];
@@ -147,6 +148,7 @@ internal static class Configs
 		sViewAlign = conn.SelectConfigsAsViewAlign("ViewAlign");
 		sViewQuality = conn.SelectConfigsAsViewQuality("ViewQuality");
 		sViewMargin = conn.SelectConfigsAsInt("ViewMargin", sViewMargin);
+		sPageJumpCount = conn.SelectConfigsAsInt("PageJumpCount", sPageJumpCount);
 
 		// 이동
 		using (var moveCmd = conn.CreateCommand())
@@ -448,6 +450,17 @@ internal static class Configs
 			var v = value < 0 ? 0 : value;
 			if (v == sViewMargin) return;
 			SetSql("ViewMargin", sViewMargin = v);
+		}
+	}
+
+	public static int PageJumpCount
+	{
+		get => sPageJumpCount;
+		set
+		{
+			var v = Math.Clamp(value, 1, 1000);
+			if (v == sPageJumpCount) return;
+			SetSql("PageJumpCount", sPageJumpCount = v);
 		}
 	}
 
