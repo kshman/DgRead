@@ -34,6 +34,7 @@ internal static class Configs
 	private static bool sFileConfirmDelete = true;
 
 	private static string sExternalProgram = string.Empty;
+	private static string sSearchPrefix = "https://www.google.com/search?q=";
 
 	private static int sCacheMaxSize = 230; // 메가바이트
 
@@ -45,6 +46,11 @@ internal static class Configs
 	private static ViewQuality sViewQuality = ViewQuality.Default;
 	private static int sViewMargin = 100;
 	private static int sPageJumpCount = 10;
+
+	private static readonly List<PasswordUsage> sPasswordUsages = [];
+	private static string sPasswordCode = string.Empty;
+	private static bool sPasswordUnlocked;
+	private static int sPasswordFailCount;
 
 	private static readonly List<MoveInfo> sMoves = [];
 	private static readonly List<BookmarkInfo> sBookmarks = [];
@@ -138,6 +144,7 @@ internal static class Configs
 		sFileConfirmDelete = conn.SelectConfigsAsBool("FileConfirmDelete", sFileConfirmDelete);
 
 		sExternalProgram = conn.SelectConfigs("ExternalProgram") ?? sExternalProgram;
+		sSearchPrefix = conn.SelectConfigs("SearchPrefix") ?? sSearchPrefix;
 
 		sCacheMaxSize = (int)conn.SelectConfigsAsLong("CacheMaxSize", sCacheMaxSize);
 
@@ -149,6 +156,30 @@ internal static class Configs
 		sViewQuality = conn.SelectConfigsAsViewQuality("ViewQuality");
 		sViewMargin = conn.SelectConfigsAsInt("ViewMargin", sViewMargin);
 		sPageJumpCount = conn.SelectConfigsAsInt("PageJumpCount", sPageJumpCount);
+
+		sPasswordCode = conn.SelectConfigs("PasswordCode") ?? string.Empty;
+		sPasswordUsages.Clear();
+		var usagesRaw = conn.SelectConfigs("PasswordUsages") ?? string.Empty;
+		if (!string.IsNullOrWhiteSpace(usagesRaw))
+		{
+			foreach (var token in usagesRaw.Split(',', StringSplitOptions.TrimEntries | StringSplitOptions.RemoveEmptyEntries))
+			{
+				if (Enum.TryParse<PasswordUsage>(token, true, out var usage) && !sPasswordUsages.Contains(usage))
+					sPasswordUsages.Add(usage);
+			}
+		}
+
+		sPasswordUnlocked = false;
+		sPasswordFailCount = 0;
+
+#if DEBUG && false
+		sPasswordCode = "1234";
+		sPasswordUsages.Clear();
+		sPasswordUsages.Add(PasswordUsage.Start);
+		sPasswordUsages.Add(PasswordUsage.LastBook);
+		sPasswordUsages.Add(PasswordUsage.Bookmark);
+		sPasswordUsages.Add(PasswordUsage.Move);
+#endif
 
 		// 이동
 		using (var moveCmd = conn.CreateCommand())
@@ -377,6 +408,16 @@ internal static class Configs
 		}
 	}
 
+	public static string SearchPrefix
+	{
+		get => sSearchPrefix;
+		set
+		{
+			if (value.Equals(sSearchPrefix)) return;
+			SetSql("SearchPrefix", sSearchPrefix = value);
+		}
+	}
+
 	public static int CacheMaxSize
 	{
 		get => sCacheMaxSize;
@@ -463,6 +504,58 @@ internal static class Configs
 			SetSql("PageJumpCount", sPageJumpCount = v);
 		}
 	}
+
+	public static IReadOnlyList<PasswordUsage> PasswordUsages => sPasswordUsages;
+
+	public static string PasswordCode
+	{
+		get => sPasswordCode;
+		set
+		{
+			if (value == sPasswordCode) return;
+			SetSql("PasswordCode", sPasswordCode = value);
+			sPasswordUnlocked = false;
+			sPasswordFailCount = 0;
+		}
+	}
+
+	public static void SetPasswordUsages(IEnumerable<PasswordUsage> usages)
+	{
+		sPasswordUsages.Clear();
+		sPasswordUsages.AddRange(usages.Distinct());
+		SetSql("PasswordUsages", string.Join(",", sPasswordUsages.Select(x => x.ToString())));
+		sPasswordUnlocked = false;
+		sPasswordFailCount = 0;
+	}
+
+	public static bool IsPasswordRequired(PasswordUsage usage)
+	{
+		if (sPasswordUnlocked)
+			return false;
+
+		if (string.IsNullOrWhiteSpace(sPasswordCode) || sPasswordUsages.Count == 0)
+			return false;
+
+		return sPasswordUsages.Contains(usage);
+	}
+
+	public static bool TryAuthorizePassword(PasswordUsage usage, string? input)
+	{
+		if (!IsPasswordRequired(usage))
+			return true;
+
+		if (string.Equals(sPasswordCode, input ?? string.Empty, StringComparison.Ordinal))
+		{
+			sPasswordUnlocked = true;
+			sPasswordFailCount = 0;
+			return true;
+		}
+
+		sPasswordFailCount++;
+		return false;
+	}
+
+	public static bool ShouldTerminateByPasswordFailure => sPasswordFailCount >= 5;
 
 	public static string LastFileName
 	{

@@ -99,14 +99,16 @@ public enum BookDirection
 /// </summary>
 public enum PasswordUsage
 {
-	/// <summary>실행 할 때</summary>
-	Run,
-	/// <summary>설정을 열 때</summary>
+	/// <summary>시작할 때 맨 처음에</summary>
+	Start,
+	/// <summary>설정 창을 열 때</summary>
 	Option,
-	/// <summary>마지막 책을 고를 때</summary>
+	/// <summary>책깔피 창을 열 때</summary>
+	Bookmark,
+	/// <summary>책 옮기기 창을 열 때</summary>
+	Move,
+	/// <summary>책 이름 바꾸기 창을 열 때</summary>
+	Rename,
+	/// <summary>마지막 책을 열 때</summary>
 	LastBook,
-	/// <summary>책을 옮길 때</summary>
-	MoveBook,
-	/// <summary>책 이름을 바꿀 때</summary>
-	RenameBook,
 }

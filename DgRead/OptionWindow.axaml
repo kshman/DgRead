@@ -1,0 +1,101 @@
+<Window xmlns="https://github.com/avaloniaui"
+		xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+		xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+		xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+		xmlns:chaek="using:DgRead.Chaek"
+		mc:Ignorable="d"
+		x:Class="DgRead.OptionWindow"
+		Width="700"
+		Height="520"
+		MinWidth="560"
+		MinHeight="420"
+		ShowInTaskbar="False"
+		WindowStartupLocation="CenterOwner"
+		CanResize="True">
+	<Grid RowDefinitions="*,Auto" Margin="12" RowSpacing="10">
+		<TabControl x:Name="RootTabControl" Grid.Row="0">
+			<TabItem x:Name="GeneralTabItem">
+				<ScrollViewer HorizontalScrollBarVisibility="Disabled" VerticalScrollBarVisibility="Auto">
+					<StackPanel Margin="8" Spacing="10">
+						<CheckBox x:Name="RunOnceCheckBox" />
+						<CheckBox x:Name="EscToExitCheckBox" />
+						<CheckBox x:Name="FileConfirmDeleteCheckBox" />
+
+						<Grid ColumnDefinitions="180,*" ColumnSpacing="8">
+							<TextBlock x:Name="ExternalProgramTextBlock" VerticalAlignment="Center" />
+							<TextBox x:Name="ExternalProgramTextBox" Grid.Column="1" />
+						</Grid>
+
+						<Grid ColumnDefinitions="180,*" ColumnSpacing="8">
+							<TextBlock x:Name="SearchPrefixTextBlock" VerticalAlignment="Center" />
+							<TextBox x:Name="SearchPrefixTextBox" Grid.Column="1" />
+						</Grid>
+
+						<Grid ColumnDefinitions="180,*" ColumnSpacing="8">
+							<TextBlock x:Name="CacheSizeTextBlock" VerticalAlignment="Center" />
+							<NumericUpDown x:Name="CacheSizeNumericUpDown" Grid.Column="1" Minimum="16" Maximum="4096" Increment="16" />
+						</Grid>
+
+						<Grid ColumnDefinitions="180,*" ColumnSpacing="8">
+							<TextBlock x:Name="PageJumpTextBlock" VerticalAlignment="Center" />
+							<NumericUpDown x:Name="PageJumpNumericUpDown" Grid.Column="1" Minimum="1" Maximum="1000" Increment="1" />
+						</Grid>
+					</StackPanel>
+				</ScrollViewer>
+			</TabItem>
+
+			<TabItem x:Name="InputTabItem">
+				<Grid RowDefinitions="Auto,*" Margin="8" RowSpacing="8">
+					<TabControl x:Name="InputSubTabControl" Grid.Row="1">
+						<TabItem x:Name="KeyboardTabItem" IsEnabled="False">
+							<TextBlock x:Name="KeyboardDisabledTextBlock" Margin="8" />
+						</TabItem>
+						<TabItem x:Name="MouseTabItem">
+							<StackPanel Margin="8" Spacing="10">
+								<CheckBox x:Name="MouseDoubleFullscreenCheckBox" />
+								<CheckBox x:Name="MouseClickPagingCheckBox" />
+							</StackPanel>
+						</TabItem>
+						<TabItem x:Name="ControllerTabItem" IsEnabled="False">
+							<TextBlock x:Name="ControllerDisabledTextBlock" Margin="8" />
+						</TabItem>
+					</TabControl>
+				</Grid>
+			</TabItem>
+
+			<TabItem x:Name="SecurityTabItem">
+				<ScrollViewer HorizontalScrollBarVisibility="Disabled" VerticalScrollBarVisibility="Auto">
+					<StackPanel Margin="8" Spacing="10">
+						<Grid ColumnDefinitions="180,*" ColumnSpacing="8">
+							<TextBlock x:Name="PasswordCodeTextBlock" VerticalAlignment="Center" />
+							<TextBox x:Name="PasswordCodeTextBox" Grid.Column="1" PasswordChar="●" />
+						</Grid>
+
+						<TextBlock x:Name="PasswordUsageTextBlock" />
+						<WrapPanel x:Name="PasswordUsageWrapPanel" ItemHeight="30" ItemWidth="200">
+							<CheckBox x:Name="PasswordStartCheckBox" />
+							<CheckBox x:Name="PasswordOptionCheckBox" />
+							<CheckBox x:Name="PasswordBookmarkCheckBox" />
+							<CheckBox x:Name="PasswordMoveCheckBox" />
+							<CheckBox x:Name="PasswordRenameCheckBox" />
+							<CheckBox x:Name="PasswordLastBookCheckBox" />
+						</WrapPanel>
+					</StackPanel>
+				</ScrollViewer>
+			</TabItem>
+
+			<TabItem x:Name="AboutTabItem">
+				<StackPanel Margin="12" Spacing="8">
+					<TextBlock x:Name="AboutAppTextBlock" FontSize="18" FontWeight="SemiBold" />
+					<TextBlock x:Name="AboutVersionTextBlock" />
+					<TextBlock x:Name="AboutDescriptionTextBlock" TextWrapping="Wrap" />
+				</StackPanel>
+			</TabItem>
+		</TabControl>
+
+		<StackPanel Grid.Row="1" Orientation="Horizontal" HorizontalAlignment="Right" Spacing="8">
+			<Button x:Name="OkButton" MinWidth="90" IsDefault="True" Click="OnOkClick" />
+			<Button x:Name="CancelButton" MinWidth="90" IsCancel="True" Click="OnCancelClick" />
+		</StackPanel>
+	</Grid>
+</Window>

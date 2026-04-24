@@ -50,14 +50,69 @@ public partial class RenExWindow : Window
 			return _pendingResult.Task;
 		}
 
-		ParseFileName(filename);
+		FillFileName(filename);
 		_pendingResult = new TaskCompletionSource<RenExResult?>(TaskCreationOptions.RunContinuationsAsynchronously);
 		Show(owner);
 		Dispatcher.UIThread.Post(() => TitleTextBox.Focus(), DispatcherPriority.Background);
 		return _pendingResult.Task;
 	}
 
-	private void ParseFileName(string? filename)
+	public static void ParseFileName(string filename, out string title, out string author, out string index, out string extra, out string extension)
+	{
+		title = author = index = extra = extension = string.Empty;
+
+		if (string.IsNullOrWhiteSpace(filename))
+			return;
+
+		var baseName = filename;
+		var ext = System.IO.Path.GetExtension(filename);
+		if (!string.IsNullOrEmpty(ext))
+		{
+			extension = ext;
+			baseName = filename[..^ext.Length];
+		}
+
+		var work = baseName.Trim();
+
+		if (work.StartsWith('['))
+		{
+			var end = work.IndexOf(']');
+			if (end > 0)
+			{
+				author = work[1..end].Trim();
+				work = work[(end + 1)..].Trim();
+			}
+		}
+
+		var extraStart = work.LastIndexOf('(');
+		var extraEnd = work.LastIndexOf(')');
+		if (extraStart >= 0 && extraEnd > extraStart)
+		{
+			extra = work[(extraStart + 1)..extraEnd].Trim();
+			work = work[..extraStart].Trim();
+		}
+
+		var lastSpace = work.LastIndexOf(' ');
+		if (lastSpace >= 0)
+		{
+			var tail = work[(lastSpace + 1)..].Trim();
+			if (int.TryParse(tail, out _))
+			{
+				index = tail;
+				work = work[..lastSpace].Trim();
+			}
+		}
+
+		title = work;
+	}
+
+	public static string ParseFileExtra(string filename)
+	{
+		ParseFileName(filename, out _, out _, out _, out var extra, out _);
+		return extra;
+	}
+
+	private void FillFileName(string? filename)
 	{
 		_initialized = false;
 		OriginalText.Text = filename ?? string.Empty;
@@ -71,46 +126,12 @@ public partial class RenExWindow : Window
 		if (string.IsNullOrWhiteSpace(filename))
 			return;
 
-		var baseName = filename;
-		var ext = System.IO.Path.GetExtension(filename);
-		if (!string.IsNullOrEmpty(ext))
-		{
-			_extension = ext;
-			baseName = filename[..^ext.Length];
-		}
-
-		var work = baseName.Trim();
-
-		if (work.StartsWith('['))
-		{
-			var end = work.IndexOf(']');
-			if (end > 0)
-			{
-				AuthorTextBox.Text = work[1..end].Trim();
-				work = work[(end + 1)..].Trim();
-			}
-		}
-
-		var extraStart = work.LastIndexOf('(');
-		var extraEnd = work.LastIndexOf(')');
-		if (extraStart >= 0 && extraEnd > extraStart)
-		{
-			ExtraTextBox.Text = work[(extraStart + 1)..extraEnd].Trim();
-			work = work[..extraStart].Trim();
-		}
-
-		var lastSpace = work.LastIndexOf(' ');
-		if (lastSpace >= 0)
-		{
-			var tail = work[(lastSpace + 1)..].Trim();
-			if (int.TryParse(tail, out _))
-			{
-				IndexTextBox.Text = tail;
-				work = work[..lastSpace].Trim();
-			}
-		}
-
-		TitleTextBox.Text = work;
+		ParseFileName(filename, out var title, out var author, out var index, out var extra, out var extension);
+		TitleTextBox.Text = title;
+		AuthorTextBox.Text = author;
+		IndexTextBox.Text = index;
+		ExtraTextBox.Text = extra;
+		_extension = extension;
 		_initialized = true;
 		UpdatePreview();
 	}

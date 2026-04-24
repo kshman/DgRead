@@ -1,284 +1,284 @@
 <Window xmlns="https://github.com/avaloniaui"
-        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-        xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
-        xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
-        mc:Ignorable="d" d:DesignWidth="1200" d:DesignHeight="760"
-        x:Class="DgRead.ReadWindow"
-        Title="DgRead"
-        MinWidth="550"
-        MinHeight="350"
-        Icon="avares://DgRead/Assets/DgRead-48.png"
-        ExtendClientAreaToDecorationsHint="True"
-        ExtendClientAreaTitleBarHeightHint="-1"
-        WindowDecorations="None"
-        DragDrop.AllowDrop="True"
-        DragDrop.DragOver="OnDragOverEvent"
-        DragDrop.Drop="OnDropEvent">
-    <Window.Resources>
-        <Geometry x:Key="BooksIconGeometry">M19,1H9A2,2 0 0,0 7,3V15A2,2 0 0,0 9,17H19A2,2 0 0,0 21,15V3A2,2 0 0,0 19,1M19,15H9V3H19V15M15,19H5A2,2 0 0,0 3,21V23H17V21A2,2 0 0,0 15,19M15,21V21H5V21H15V21M17,19H17A2,2 0 0,0 19,21V23H21V21A2,2 0 0,0 19,19Z</Geometry>
-        <Geometry x:Key="MainMenuIconGeometry">M3,6H21V8H3V6M3,11H21V13H3V11M3,16H21V18H3V16Z</Geometry>
+		xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+		xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+		xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+		mc:Ignorable="d" d:DesignWidth="1200" d:DesignHeight="760"
+		x:Class="DgRead.ReadWindow"
+		Title="DgRead"
+		MinWidth="550"
+		MinHeight="350"
+		Icon="avares://DgRead/Assets/DgRead-48.png"
+		ExtendClientAreaToDecorationsHint="True"
+		ExtendClientAreaTitleBarHeightHint="-1"
+		WindowDecorations="None"
+		DragDrop.AllowDrop="True"
+		DragDrop.DragOver="OnDragOverEvent"
+		DragDrop.Drop="OnDropEvent">
+	<Window.Resources>
+		<Geometry x:Key="BooksIconGeometry">M19,1H9A2,2 0 0,0 7,3V15A2,2 0 0,0 9,17H19A2,2 0 0,0 21,15V3A2,2 0 0,0 19,1M19,15H9V3H19V15M15,19H5A2,2 0 0,0 3,21V23H17V21A2,2 0 0,0 15,19M15,21V21H5V21H15V21M17,19H17A2,2 0 0,0 19,21V23H21V21A2,2 0 0,0 19,19Z</Geometry>
+		<Geometry x:Key="MainMenuIconGeometry">M3,6H21V8H3V6M3,11H21V13H3V11M3,16H21V18H3V16Z</Geometry>
 
-        <StreamGeometry x:Key="Book1Geom">M4,4H7V20H4V4Z</StreamGeometry>
-        <StreamGeometry x:Key="Book2Geom">M8,3H12V21H8V3Z</StreamGeometry>
-        <StreamGeometry x:Key="Book3Geom">M13,5H17V19H13V5Z</StreamGeometry>
-        <StreamGeometry x:Key="BookLineGeom">M4,7H7 M8,6H12 M13,8H17</StreamGeometry>
-        <StreamGeometry x:Key="BookBgGeom">M2,4H22V20H2V4M12,4V20</StreamGeometry>
-        <StreamGeometry x:Key="ArrowRightGeom">M14,12L10,8V11H6V13H10V16L14,12Z</StreamGeometry>
-        <StreamGeometry x:Key="ArrowLeftGeom">M10,12L14,8V11H18V13H14V16L10,12Z</StreamGeometry>
-        <StreamGeometry x:Key="ArrowFitGeom">M2,12L7,7V10H17V7L22,12L17,17V14H7V17L2,12Z</StreamGeometry>
-        <StreamGeometry x:Key="ArrowScrollGeom">M12,2L17,7H14V17H17L12,22L7,17H10V7H7L12,2Z</StreamGeometry>
-        <StreamGeometry x:Key="ViewMenuGeom">M4,2H18A2,2 0 0,1 20,4V18A2,2 0 0,1 18,20H4A2,2 0 0,1 2,18V4A2,2 0 0,1 4,2M4,4V18H18V4H4M8,6H16V8H8V6M8,10H16V16H8V10Z</StreamGeometry>
+		<StreamGeometry x:Key="Book1Geom">M4,4H7V20H4V4Z</StreamGeometry>
+		<StreamGeometry x:Key="Book2Geom">M8,3H12V21H8V3Z</StreamGeometry>
+		<StreamGeometry x:Key="Book3Geom">M13,5H17V19H13V5Z</StreamGeometry>
+		<StreamGeometry x:Key="BookLineGeom">M4,7H7 M8,6H12 M13,8H17</StreamGeometry>
+		<StreamGeometry x:Key="BookBgGeom">M2,4H22V20H2V4M12,4V20</StreamGeometry>
+		<StreamGeometry x:Key="ArrowRightGeom">M14,12L10,8V11H6V13H10V16L14,12Z</StreamGeometry>
+		<StreamGeometry x:Key="ArrowLeftGeom">M10,12L14,8V11H18V13H14V16L10,12Z</StreamGeometry>
+		<StreamGeometry x:Key="ArrowFitGeom">M2,12L7,7V10H17V7L22,12L17,17V14H7V17L2,12Z</StreamGeometry>
+		<StreamGeometry x:Key="ArrowScrollGeom">M12,2L17,7H14V17H17L12,22L7,17H10V7H7L12,2Z</StreamGeometry>
+		<StreamGeometry x:Key="ViewMenuGeom">M4,2H18A2,2 0 0,1 20,4V18A2,2 0 0,1 18,20H4A2,2 0 0,1 2,18V4A2,2 0 0,1 4,2M4,4V18H18V4H4M8,6H16V8H8V6M8,10H16V16H8V10Z</StreamGeometry>
 
-        <DrawingImage x:Key="MultiBookIcon">
-            <DrawingGroup>
-                <GeometryDrawing Geometry="{StaticResource Book1Geom}" Brush="#E57373" />
-                <GeometryDrawing Geometry="{StaticResource Book2Geom}" Brush="#64B5F6" />
-                <GeometryDrawing Geometry="{StaticResource Book3Geom}" Brush="#FFB74D" />
-                <GeometryDrawing Geometry="{StaticResource BookLineGeom}">
-                    <GeometryDrawing.Pen>
-                        <Pen Brush="#40000000" Thickness="1"/>
-                    </GeometryDrawing.Pen>
-                </GeometryDrawing>
-            </DrawingGroup>
-        </DrawingImage>
-        <DrawingImage x:Key="ViewL2RIcon">
-            <DrawingGroup>
-                <GeometryDrawing Geometry="{StaticResource BookBgGeom}" Brush="#E0E0E0" />
-                <GeometryDrawing Geometry="{StaticResource ArrowRightGeom}" Brush="Blue" />
-            </DrawingGroup>
-        </DrawingImage>
-        <DrawingImage x:Key="ViewR2LIcon">
-            <DrawingGroup>
-                <GeometryDrawing Geometry="{StaticResource BookBgGeom}" Brush="#E0E0E0" />
-                <GeometryDrawing Geometry="{StaticResource ArrowLeftGeom}" Brush="Red" />
-            </DrawingGroup>
-        </DrawingImage>
-        <DrawingImage x:Key="ViewFitIcon">
-            <DrawingGroup>
-                <GeometryDrawing Geometry="{StaticResource ArrowFitGeom}" Brush="LimeGreen" />
-            </DrawingGroup>
-        </DrawingImage>
-        <DrawingImage x:Key="ViewScrollIcon">
-            <DrawingGroup>
-                <GeometryDrawing Geometry="{StaticResource ArrowScrollGeom}" Brush="LimeGreen" />
-            </DrawingGroup>
-        </DrawingImage>
-        <DrawingImage x:Key="ViewMenuIcon">
-            <DrawingGroup>
-                <GeometryDrawing Geometry="{StaticResource ViewMenuGeom}" Brush="White" />
-            </DrawingGroup>
-        </DrawingImage>
-    </Window.Resources>
+		<DrawingImage x:Key="MultiBookIcon">
+			<DrawingGroup>
+				<GeometryDrawing Geometry="{StaticResource Book1Geom}" Brush="#E57373" />
+				<GeometryDrawing Geometry="{StaticResource Book2Geom}" Brush="#64B5F6" />
+				<GeometryDrawing Geometry="{StaticResource Book3Geom}" Brush="#FFB74D" />
+				<GeometryDrawing Geometry="{StaticResource BookLineGeom}">
+					<GeometryDrawing.Pen>
+						<Pen Brush="#40000000" Thickness="1"/>
+					</GeometryDrawing.Pen>
+				</GeometryDrawing>
+			</DrawingGroup>
+		</DrawingImage>
+		<DrawingImage x:Key="ViewL2RIcon">
+			<DrawingGroup>
+				<GeometryDrawing Geometry="{StaticResource BookBgGeom}" Brush="#E0E0E0" />
+				<GeometryDrawing Geometry="{StaticResource ArrowRightGeom}" Brush="Blue" />
+			</DrawingGroup>
+		</DrawingImage>
+		<DrawingImage x:Key="ViewR2LIcon">
+			<DrawingGroup>
+				<GeometryDrawing Geometry="{StaticResource BookBgGeom}" Brush="#E0E0E0" />
+				<GeometryDrawing Geometry="{StaticResource ArrowLeftGeom}" Brush="Red" />
+			</DrawingGroup>
+		</DrawingImage>
+		<DrawingImage x:Key="ViewFitIcon">
+			<DrawingGroup>
+				<GeometryDrawing Geometry="{StaticResource ArrowFitGeom}" Brush="LimeGreen" />
+			</DrawingGroup>
+		</DrawingImage>
+		<DrawingImage x:Key="ViewScrollIcon">
+			<DrawingGroup>
+				<GeometryDrawing Geometry="{StaticResource ArrowScrollGeom}" Brush="LimeGreen" />
+			</DrawingGroup>
+		</DrawingImage>
+		<DrawingImage x:Key="ViewMenuIcon">
+			<DrawingGroup>
+				<GeometryDrawing Geometry="{StaticResource ViewMenuGeom}" Brush="White" />
+			</DrawingGroup>
+		</DrawingImage>
+	</Window.Resources>
 
-    <Grid RowDefinitions="Auto,*">
-        <Border x:Name="TitleBarHost"
-                Grid.Row="0"
-                Background="{DynamicResource SystemControlBackgroundChromeMediumLowBrush}"
-                PointerPressed="OnTitleBarPointerPressed"
-                DoubleTapped="OnTitleBarDoubleTapped">
-            <Grid Height="40" ColumnDefinitions="Auto,*,Auto,Auto,Auto,Auto,Auto,Auto">
-                <Image x:Name="MainIcon"
-                       Grid.Column="0" 
-                       Margin="12,0,8,0" 
-                       Width="18" 
-                       Height="18" 
-                       Source="{StaticResource MultiBookIcon}" />
+	<Grid RowDefinitions="Auto,*">
+		<Border x:Name="TitleBarHost"
+				Grid.Row="0"
+				Background="{DynamicResource SystemControlBackgroundChromeMediumLowBrush}"
+				PointerPressed="OnTitleBarPointerPressed"
+				DoubleTapped="OnTitleBarDoubleTapped">
+			<Grid Height="40" ColumnDefinitions="Auto,*,Auto,Auto,Auto,Auto,Auto,Auto">
+				<Image x:Name="MainIcon"
+					   Grid.Column="0"
+					   Margin="12,0,8,0"
+					   Width="18"
+					   Height="18"
+					   Source="{StaticResource MultiBookIcon}" />
 
-                <TextBlock x:Name="TitleTextBlock"
-                           Grid.Column="1"
-                           VerticalAlignment="Center"
-                           FontSize="13"
-                           TextTrimming="CharacterEllipsis"
-                           Text="--" />
+				<TextBlock x:Name="TitleTextBlock"
+						   Grid.Column="1"
+						   VerticalAlignment="Center"
+						   FontSize="13"
+						   TextTrimming="CharacterEllipsis"
+						   Text="--" />
 
-                <Button x:Name="ViewMenuButton"
-                        Grid.Column="2"
-                        MinWidth="40"
-                        Focusable="False"
-                        Background="Transparent"
-                        BorderThickness="0"
-                        Click="OnViewMenuButtonClick">
-                    <Image x:Name="ViewMenuButtonIcon" 
-                           Width="16" Height="16" 
-                           Source="{StaticResource ViewMenuIcon}" />
-                    <Button.ContextMenu>
-                        <ContextMenu Placement="BottomEdgeAlignedRight">
-                            <MenuItem x:Name="ViewDirectionLabel" IsEnabled="False" />
-                            <MenuItem x:Name="FitToScreenMenuItem" ToggleType="CheckBox" Click="OnViewDirectionClick" />
-                            <MenuItem x:Name="LeftToRightMenuItem" ToggleType="CheckBox" Click="OnViewDirectionClick" />
-                            <MenuItem x:Name="RightToLeftMenuItem" ToggleType="CheckBox" Click="OnViewDirectionClick" />
-                            <MenuItem x:Name="ScrollModeMenuItem" ToggleType="CheckBox" Click="OnViewDirectionClick" />
-                            <Separator />
-                            <MenuItem x:Name="ImageQualityLabel" IsEnabled="False" />
-                            <MenuItem x:Name="FastQualityMenuItem" ToggleType="CheckBox" Click="OnImageQualityClick" />
-                            <MenuItem x:Name="DefaultQualityMenuItem" ToggleType="CheckBox" Click="OnImageQualityClick" />
-                            <MenuItem x:Name="HighQualityMenuItem" ToggleType="CheckBox" Click="OnImageQualityClick" />
-                            <MenuItem x:Name="NearestInterpolationMenuItem" ToggleType="CheckBox" Click="OnImageQualityClick" />
-                            <MenuItem x:Name="BilinearInterpolationMenuItem" ToggleType="CheckBox" Click="OnImageQualityClick" />
-                            <Separator />
-                            <MenuItem x:Name="HorizontalAlignLabel" IsEnabled="False" />
-                            <MenuItem x:Name="LeftAlignMenuItem" ToggleType="CheckBox" Click="OnHorizontalAlignClick" />
-                            <MenuItem x:Name="CenterAlignMenuItem" ToggleType="CheckBox" Click="OnHorizontalAlignClick" />
-                            <MenuItem x:Name="RightAlignMenuItem" ToggleType="CheckBox" Click="OnHorizontalAlignClick" />
-                            <MenuItem x:Name="MarginLabel" IsEnabled="False" />
-                            <MenuItem StaysOpenOnClick="True" IsEnabled="False">
-                                <MenuItem.Header>
-                                    <NumericUpDown x:Name="MarginNumericUpDown"
-                                                   Width="180"
-                                                   Minimum="0"
-                                                   Maximum="9999"
-                                                   Increment="10"
-                                                   Value="100"
-                                                   FormatString="N0"
-                                                   ValueChanged="OnMarginValueChanged" />
-                                </MenuItem.Header>
-                            </MenuItem>
-                        </ContextMenu>
-                    </Button.ContextMenu>
-                </Button>
+				<Button x:Name="ViewMenuButton"
+						Grid.Column="2"
+						MinWidth="40"
+						Focusable="False"
+						Background="Transparent"
+						BorderThickness="0"
+						Click="OnViewMenuButtonClick">
+					<Image x:Name="ViewMenuButtonIcon"
+						   Width="16" Height="16"
+						   Source="{StaticResource ViewMenuIcon}" />
+					<Button.ContextMenu>
+						<ContextMenu Placement="BottomEdgeAlignedRight">
+							<MenuItem x:Name="ViewDirectionLabel" IsEnabled="False" />
+							<MenuItem x:Name="FitToScreenMenuItem" ToggleType="CheckBox" Click="OnViewDirectionClick" />
+							<MenuItem x:Name="LeftToRightMenuItem" ToggleType="CheckBox" Click="OnViewDirectionClick" />
+							<MenuItem x:Name="RightToLeftMenuItem" ToggleType="CheckBox" Click="OnViewDirectionClick" />
+							<MenuItem x:Name="ScrollModeMenuItem" ToggleType="CheckBox" Click="OnViewDirectionClick" />
+							<Separator />
+							<MenuItem x:Name="ImageQualityLabel" IsEnabled="False" />
+							<MenuItem x:Name="FastQualityMenuItem" ToggleType="CheckBox" Click="OnImageQualityClick" />
+							<MenuItem x:Name="DefaultQualityMenuItem" ToggleType="CheckBox" Click="OnImageQualityClick" />
+							<MenuItem x:Name="HighQualityMenuItem" ToggleType="CheckBox" Click="OnImageQualityClick" />
+							<MenuItem x:Name="NearestInterpolationMenuItem" ToggleType="CheckBox" Click="OnImageQualityClick" />
+							<MenuItem x:Name="BilinearInterpolationMenuItem" ToggleType="CheckBox" Click="OnImageQualityClick" />
+							<Separator />
+							<MenuItem x:Name="HorizontalAlignLabel" IsEnabled="False" />
+							<MenuItem x:Name="LeftAlignMenuItem" ToggleType="CheckBox" Click="OnHorizontalAlignClick" />
+							<MenuItem x:Name="CenterAlignMenuItem" ToggleType="CheckBox" Click="OnHorizontalAlignClick" />
+							<MenuItem x:Name="RightAlignMenuItem" ToggleType="CheckBox" Click="OnHorizontalAlignClick" />
+							<MenuItem x:Name="MarginLabel" IsEnabled="False" />
+							<MenuItem StaysOpenOnClick="True" IsEnabled="False">
+								<MenuItem.Header>
+									<NumericUpDown x:Name="MarginNumericUpDown"
+												   Width="180"
+												   Minimum="0"
+												   Maximum="9999"
+												   Increment="10"
+												   Value="100"
+												   FormatString="N0"
+												   ValueChanged="OnMarginValueChanged" />
+								</MenuItem.Header>
+							</MenuItem>
+						</ContextMenu>
+					</Button.ContextMenu>
+				</Button>
 
-                <Button x:Name="MainMenuButton"
-                        Grid.Column="3"
-                        MinWidth="40"
-                        Focusable="False"
-                        Background="Transparent"
-                        BorderThickness="0"
-                        Click="OnMainMenuButtonClick">
-                    <PathIcon Width="16"
-                              Height="16"
-                              Foreground="{DynamicResource SystemControlForegroundBaseHighBrush}"
-                              Data="{StaticResource MainMenuIconGeometry}" />
-                    <Button.ContextMenu>
-                        <ContextMenu Placement="BottomEdgeAlignedRight">
-                            <MenuItem x:Name="OpenBookMenuItem" Click="OnOpenBookClick" InputGesture="Ctrl+O" />
-                            <MenuItem x:Name="OpenFolderMenuItem" Click="OnOpenFolderClick" InputGesture="Ctrl+Shift+O" />
-                            <MenuItem x:Name="CloseBookMenuItem" Click="OnCloseBookClick" InputGesture="Ctrl+W" />
-                            <Separator />
-                            <MenuItem x:Name="AddBookmarkMenuItem" Click="OnAddBookmarkClick" InputGesture="Ctrl+B" />
-                            <MenuItem x:Name="ManageBookmarksMenuItem" Click="OnManageBookmarksClick" InputGesture="F9" />
-                            <Separator />
-                            <MenuItem x:Name="SettingsMenuItem" Click="OnSettingsClick" InputGesture="Ctrl+," />
-                            <MenuItem x:Name="ThemeMenuItem">
-                                <MenuItem x:Name="ThemeDefaultMenuItem" ToggleType="CheckBox" Click="OnThemeMenuClick" />
-                                <MenuItem x:Name="ThemeLightMenuItem" ToggleType="CheckBox" Click="OnThemeMenuClick" />
-                                <MenuItem x:Name="ThemeDarkMenuItem" ToggleType="CheckBox" Click="OnThemeMenuClick" />
-                            </MenuItem>
-                            <Separator />
-                            <MenuItem x:Name="ExitMenuItem" Click="OnExitClick" InputGesture="Alt+F4" />
-                        </ContextMenu>
-                    </Button.ContextMenu>
-                </Button>
+				<Button x:Name="MainMenuButton"
+						Grid.Column="3"
+						MinWidth="40"
+						Focusable="False"
+						Background="Transparent"
+						BorderThickness="0"
+						Click="OnMainMenuButtonClick">
+					<PathIcon Width="16"
+							  Height="16"
+							  Foreground="{DynamicResource SystemControlForegroundBaseHighBrush}"
+							  Data="{StaticResource MainMenuIconGeometry}" />
+					<Button.ContextMenu>
+						<ContextMenu Placement="BottomEdgeAlignedRight">
+							<MenuItem x:Name="OpenBookMenuItem" Click="OnOpenBookClick" InputGesture="Ctrl+O" />
+							<MenuItem x:Name="OpenFolderMenuItem" Click="OnOpenFolderClick" InputGesture="Ctrl+Shift+O" />
+							<MenuItem x:Name="CloseBookMenuItem" Click="OnCloseBookClick" InputGesture="Ctrl+W" />
+							<Separator />
+							<MenuItem x:Name="AddBookmarkMenuItem" Click="OnAddBookmarkClick" InputGesture="Ctrl+B" />
+							<MenuItem x:Name="ManageBookmarksMenuItem" Click="OnManageBookmarksClick" InputGesture="F9" />
+							<Separator />
+							<MenuItem x:Name="SettingsMenuItem" Click="OnSettingsClick" InputGesture="Ctrl+," />
+							<MenuItem x:Name="ThemeMenuItem">
+								<MenuItem x:Name="ThemeDefaultMenuItem" ToggleType="CheckBox" Click="OnThemeMenuClick" />
+								<MenuItem x:Name="ThemeLightMenuItem" ToggleType="CheckBox" Click="OnThemeMenuClick" />
+								<MenuItem x:Name="ThemeDarkMenuItem" ToggleType="CheckBox" Click="OnThemeMenuClick" />
+							</MenuItem>
+							<Separator />
+							<MenuItem x:Name="ExitMenuItem" Click="OnExitClick" InputGesture="Alt+F4" />
+						</ContextMenu>
+					</Button.ContextMenu>
+				</Button>
 
-                <Button x:Name="FullscreenButton"
-                        Grid.Column="4"
-                        Width="44"
-                        Focusable="False"
-                        Background="Transparent"
-                        BorderThickness="0"
-                        Click="OnToggleFullscreenClick">
-                    <TextBlock x:Name="FullscreenGlyph" FontFamily="Segoe Fluent Icons, Segoe MDL2 Assets" Text="&#xE740;" />
-                </Button>
+				<Button x:Name="FullscreenButton"
+						Grid.Column="4"
+						Width="44"
+						Focusable="False"
+						Background="Transparent"
+						BorderThickness="0"
+						Click="OnToggleFullscreenClick">
+					<TextBlock x:Name="FullscreenGlyph" FontFamily="Segoe Fluent Icons, Segoe MDL2 Assets" Text="&#xE740;" />
+				</Button>
 
-                <Button x:Name="MinimizeButton"
-                        Grid.Column="5"
-                        Width="44"
-                        Focusable="False"
-                        Background="Transparent"
-                        BorderThickness="0"
-                        Click="OnMinimizeClick">
-                    <TextBlock FontFamily="Segoe Fluent Icons, Segoe MDL2 Assets" Text="&#xE921;" />
-                </Button>
+				<Button x:Name="MinimizeButton"
+						Grid.Column="5"
+						Width="44"
+						Focusable="False"
+						Background="Transparent"
+						BorderThickness="0"
+						Click="OnMinimizeClick">
+					<TextBlock FontFamily="Segoe Fluent Icons, Segoe MDL2 Assets" Text="&#xE921;" />
+				</Button>
 
-                <Button x:Name="MaximizeButton"
-                        Grid.Column="6"
-                        Width="44"
-                        Focusable="False"
-                        Background="Transparent"
-                        BorderThickness="0"
-                        Click="OnMaximizeRestoreClick">
-                    <TextBlock x:Name="MaximizeGlyph" FontFamily="Segoe Fluent Icons, Segoe MDL2 Assets" Text="&#xE922;" />
-                </Button>
+				<Button x:Name="MaximizeButton"
+						Grid.Column="6"
+						Width="44"
+						Focusable="False"
+						Background="Transparent"
+						BorderThickness="0"
+						Click="OnMaximizeRestoreClick">
+					<TextBlock x:Name="MaximizeGlyph" FontFamily="Segoe Fluent Icons, Segoe MDL2 Assets" Text="&#xE922;" />
+				</Button>
 
-                <Button x:Name="CloseButton"
-                        Grid.Column="7"
-                        Width="44"
-                        Focusable="False"
-                        Background="Transparent"
-                        BorderThickness="0"
-                        Click="OnCloseClick">
-                    <TextBlock FontFamily="Segoe Fluent Icons, Segoe MDL2 Assets" Text="&#xE8BB;" />
-                </Button>
-            </Grid>
-        </Border>
+				<Button x:Name="CloseButton"
+						Grid.Column="7"
+						Width="44"
+						Focusable="False"
+						Background="Transparent"
+						BorderThickness="0"
+						Click="OnCloseClick">
+					<TextBlock FontFamily="Segoe Fluent Icons, Segoe MDL2 Assets" Text="&#xE8BB;" />
+				</Button>
+			</Grid>
+		</Border>
 
-        <Grid Grid.Row="1" Margin="2">
-            <ScrollViewer x:Name="ReaderScrollViewer"
-                          HorizontalScrollBarVisibility="Hidden"
-                          VerticalScrollBarVisibility="Hidden">
-                <Grid x:Name="ReaderRootGrid">
-                    <StackPanel x:Name="SpreadPanel"
-                                Orientation="Horizontal"
-                                HorizontalAlignment="Center"
-                                VerticalAlignment="Center"
-                                Spacing="6">
-                        <Image x:Name="LeftPageImage"
-                               Stretch="Uniform"
-                               MaxWidth="10000"
-                               MaxHeight="10000" />
-                        <Image x:Name="RightPageImage"
-                               Stretch="Uniform"
-                               MaxWidth="10000"
-                               MaxHeight="10000" />
-                    </StackPanel>
+		<Grid Grid.Row="1" Margin="2">
+			<ScrollViewer x:Name="ReaderScrollViewer"
+						  HorizontalScrollBarVisibility="Hidden"
+						  VerticalScrollBarVisibility="Hidden">
+				<Grid x:Name="ReaderRootGrid">
+					<StackPanel x:Name="SpreadPanel"
+								Orientation="Horizontal"
+								HorizontalAlignment="Center"
+								VerticalAlignment="Center"
+								Spacing="6">
+						<Image x:Name="LeftPageImage"
+							   Stretch="Uniform"
+							   MaxWidth="10000"
+							   MaxHeight="10000" />
+						<Image x:Name="RightPageImage"
+							   Stretch="Uniform"
+							   MaxWidth="10000"
+							   MaxHeight="10000" />
+					</StackPanel>
 
-                    <StackPanel x:Name="ScrollPagesPanel"
-                                IsVisible="False"
-                                Orientation="Vertical"
-                                Spacing="8"
-                                HorizontalAlignment="Center"
-                                VerticalAlignment="Top" />
+					<StackPanel x:Name="ScrollPagesPanel"
+								IsVisible="False"
+								Orientation="Vertical"
+								Spacing="8"
+								HorizontalAlignment="Center"
+								VerticalAlignment="Top" />
 
-                    <Image x:Name="LogoImage"
-                           Width="400"
-                           Height="300"
-                           Margin="20"
-                           HorizontalAlignment="Right"
-                           VerticalAlignment="Bottom"
-                           Stretch="Uniform"
-                           Source="avares://DgRead/Assets/logo.png" />
-                </Grid>
-            </ScrollViewer>
+					<Image x:Name="LogoImage"
+						   Width="400"
+						   Height="300"
+						   Margin="20"
+						   HorizontalAlignment="Right"
+						   VerticalAlignment="Bottom"
+						   Stretch="Uniform"
+						   Source="avares://DgRead/Assets/logo.png" />
+				</Grid>
+			</ScrollViewer>
 
-            <Border x:Name="NotifyBorder"
-                    IsVisible="False"
-                    ZIndex="100"
-                    Margin="20,0"
-                    Padding="12,8"
-                    HorizontalAlignment="Stretch"
-                    VerticalAlignment="Center"
-                    Background="#CC002020"
-                    BorderBrush="#FF406060"
-                    BorderThickness="1"
-                    CornerRadius="6">
-                <TextBlock x:Name="NotifyTextBlock"
-                           Text=""
-                           FontSize="24"
-                           Foreground="White"
-                           TextAlignment="Center"
-                           HorizontalAlignment="Center"
-                           VerticalAlignment="Center"
-                           TextWrapping="Wrap" />
-            </Border>
-        </Grid>
+			<Border x:Name="NotifyBorder"
+					IsVisible="False"
+					ZIndex="100"
+					Margin="20,0"
+					Padding="12,8"
+					HorizontalAlignment="Stretch"
+					VerticalAlignment="Center"
+					Background="#CC002020"
+					BorderBrush="#FF406060"
+					BorderThickness="1"
+					CornerRadius="6">
+				<TextBlock x:Name="NotifyTextBlock"
+						   Text=""
+						   FontSize="24"
+						   Foreground="White"
+						   TextAlignment="Center"
+						   HorizontalAlignment="Center"
+						   VerticalAlignment="Center"
+						   TextWrapping="Wrap" />
+			</Border>
+		</Grid>
 
-        <Border Grid.RowSpan="2" Height="6" VerticalAlignment="Top" Background="Transparent" PointerPressed="OnResizeTopPressed" />
-        <Border Grid.RowSpan="2" Height="6" VerticalAlignment="Bottom" Background="Transparent" PointerPressed="OnResizeBottomPressed" />
-        <Border Grid.RowSpan="2" Width="6" HorizontalAlignment="Left" Background="Transparent" PointerPressed="OnResizeLeftPressed" />
-        <Border Grid.RowSpan="2" Width="6" HorizontalAlignment="Right" Background="Transparent" PointerPressed="OnResizeRightPressed" />
+		<Border Grid.RowSpan="2" Height="6" VerticalAlignment="Top" Background="Transparent" PointerPressed="OnResizeTopPressed" />
+		<Border Grid.RowSpan="2" Height="6" VerticalAlignment="Bottom" Background="Transparent" PointerPressed="OnResizeBottomPressed" />
+		<Border Grid.RowSpan="2" Width="6" HorizontalAlignment="Left" Background="Transparent" PointerPressed="OnResizeLeftPressed" />
+		<Border Grid.RowSpan="2" Width="6" HorizontalAlignment="Right" Background="Transparent" PointerPressed="OnResizeRightPressed" />
 
-        <Border Grid.RowSpan="2" Width="10" Height="10" HorizontalAlignment="Left" VerticalAlignment="Top" Background="Transparent" PointerPressed="OnResizeTopLeftPressed" />
-        <Border Grid.RowSpan="2" Width="10" Height="10" HorizontalAlignment="Right" VerticalAlignment="Top" Background="Transparent" PointerPressed="OnResizeTopRightPressed" />
-        <Border Grid.RowSpan="2" Width="10" Height="10" HorizontalAlignment="Left" VerticalAlignment="Bottom" Background="Transparent" PointerPressed="OnResizeBottomLeftPressed" />
-        <Border Grid.RowSpan="2" Width="10" Height="10" HorizontalAlignment="Right" VerticalAlignment="Bottom" Background="Transparent" PointerPressed="OnResizeBottomRightPressed" />
-    </Grid>
+		<Border Grid.RowSpan="2" Width="10" Height="10" HorizontalAlignment="Left" VerticalAlignment="Top" Background="Transparent" PointerPressed="OnResizeTopLeftPressed" />
+		<Border Grid.RowSpan="2" Width="10" Height="10" HorizontalAlignment="Right" VerticalAlignment="Top" Background="Transparent" PointerPressed="OnResizeTopRightPressed" />
+		<Border Grid.RowSpan="2" Width="10" Height="10" HorizontalAlignment="Left" VerticalAlignment="Bottom" Background="Transparent" PointerPressed="OnResizeBottomLeftPressed" />
+		<Border Grid.RowSpan="2" Width="10" Height="10" HorizontalAlignment="Right" VerticalAlignment="Bottom" Background="Transparent" PointerPressed="OnResizeBottomRightPressed" />
+	</Grid>
 </Window>

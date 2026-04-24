@@ -24,3 +24,6 @@ dotnet publish -c Release -r $target --self-contained true `
 Compress-Archive -Path "$publishDir\*" -DestinationPath $zipPath -Force
 
 Write-Host "✅ 배포 완료! ($zipPath)" -ForegroundColor Green
+
+# 리눅스 빌드
+# dotnet publish -c Release -r linux-x64 -p:DebugType=none -p:DebugSymbols=false -p:PublishReadyToRun=true -p:PublishSingleFile=true -p:IncludeNativeLibrariesForSelfExtract=true -o bin/linux

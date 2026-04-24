@@ -79,6 +79,7 @@ public partial class ReadWindow : Window
 
 		Closing += OnClosing;
 		Closed += OnClosed;
+		Opened += OnOpened;
 		Deactivated += OnDeactivated;
 		PropertyChanged += OnPropertyChanged;
 		_animationTimer.Tick += OnAnimationTick;
@@ -274,6 +275,49 @@ public partial class ReadWindow : Window
 		}
 	}
 
+	private async Task CopySearchToClipboard()
+	{
+		var book = _book;
+		if (book == null)
+			return;
+
+		var query = book.FileName;
+		await CopySearchQueryToClipboardAsync(query);
+	}
+
+	private async Task CopySearchExtraToClipboard()
+	{
+		var book = _book;
+		if (book == null)
+			return;
+
+		var query = RenExWindow.ParseFileExtra(book.FileName);
+		if (string.IsNullOrWhiteSpace(query))
+		{
+			Notify(T("Unable to build search query"));
+			return;
+		}
+
+		await CopySearchQueryToClipboardAsync(query);
+	}
+
+	private async Task CopySearchQueryToClipboardAsync(string query)
+	{
+		if (string.IsNullOrWhiteSpace(query))
+			return;
+
+		var payload = $"{Configs.SearchPrefix}{Uri.EscapeDataString(query.Trim())}";
+
+		var clipboard = TopLevel.GetTopLevel(this)?.Clipboard;
+		if (clipboard == null)
+			return;
+
+		var data = new DataTransfer();
+		data.Add(DataTransferItem.Create(DataFormat.Text, payload));
+		await clipboard.SetDataAsync(data);
+		Notify(T("Copied search material to clipboard"));
+	}
+
 	/// <summary>
 	/// 마우스 휠 이벤트의 프리뷰 단계에서 처리합니다. 스크롤 모드일 경우 스크롤 동기화를,
 	/// 그렇지 않으면 페이지 전환 또는 줌 처리를 시도합니다.
@@ -309,6 +353,13 @@ public partial class ReadWindow : Window
 	/// </summary>
 	private void OnPointerPressedPreview(object? sender, PointerPressedEventArgs e)
 	{
+		if (e.GetCurrentPoint(this).Properties.IsMiddleButtonPressed)
+		{
+			ToggleFullscreen();
+			e.Handled = true;
+			return;
+		}
+
 		if (_book?.ViewMode == ViewMode.Scroll)
 			_scroll.TryBeginDrag(e);
 	}
@@ -558,6 +609,15 @@ public partial class ReadWindow : Window
 					handled = false;
 				break;
 
+			case Key.D:
+				if (e.KeyModifiers.HasFlag(KeyModifiers.Control) && e.KeyModifiers.HasFlag(KeyModifiers.Shift))
+					_ = CopySearchExtraToClipboard();
+				else if (e.KeyModifiers.HasFlag(KeyModifiers.Control))
+					_ = CopySearchToClipboard();
+				else
+					handled = false;
+				break;
+
 			case Key.F9:
 				_ = AddBookmarkAsync();
 				break;
@@ -604,15 +664,20 @@ public partial class ReadWindow : Window
 
 			case Key.Z:
 				if (e.KeyModifiers.HasFlag(KeyModifiers.Shift | KeyModifiers.Control))
-					OpenBook(Configs.LastFileName);
+					_ = OpenLastBookAsync();
 				break;
 
 			// 기능
 			case Key.F11:
 #if DEBUG
-				_ = SuppUi.OkAsync(this, "테스트 입니다", "테스트");
-				Notify("알림 메시지 테스트이와요~");
+				if (e.KeyModifiers.HasFlag(KeyModifiers.Shift))
+				{
+					_ = SuppUi.OkAsync(this, "테스트 입니다", "테스트");
+					Notify("알림 메시지 테스트이와요~");
+				}
+				else
 #endif
+					_ = OpenSettingsWindowAsync();
 				break;
 
 			default:
@@ -921,6 +986,18 @@ public partial class ReadWindow : Window
 	{
 		// 키보드 상태 초기화 (키가 눌린 채로 창 전환 시 발생할 수 있는 문제 방지)
 		_pressedKeys.Clear();
+	}
+
+	private async void OnOpened(object? sender, EventArgs e)
+	{
+		try
+		{
+			await EnsurePasswordAtStartupAsync();
+		}
+		catch
+		{
+			Close();
+		}
 	}
 
 	/// <summary>
@@ -1309,6 +1386,9 @@ public partial class ReadWindow : Window
 	{
 		try
 		{
+			if (!await AuthorizeAsync(PasswordUsage.Move))
+				return;
+
 			_pressedKeys.Clear();
 			_keyHoldTimer.Stop();
 
@@ -1341,6 +1421,9 @@ public partial class ReadWindow : Window
 	{
 		try
 		{
+			if (!await AuthorizeAsync(PasswordUsage.Rename))
+				return;
+
 			var book = _book;
 			if (book == null)
 				return;
@@ -1700,6 +1783,7 @@ public partial class ReadWindow : Window
 	/// </summary>
 	private void OnSettingsClick(object? sender, RoutedEventArgs e)
 	{
+		_ = OpenSettingsWindowAsync();
 	}
 
 	/// <summary>
@@ -1746,6 +1830,20 @@ public partial class ReadWindow : Window
 		}
 	}
 
+	private async Task OpenSettingsWindowAsync()
+	{
+		if (!await AuthorizeAsync(PasswordUsage.Option))
+			return;
+
+		var dlg = new OptionWindow();
+		var applied = await dlg.ShowAsync(this);
+		if (!applied)
+			return;
+
+		ApplyTheme();
+		ApplyMenuState();
+	}
+
 	/// <summary>
 	/// 현재 페이지를 책갈피로 추가하거나, 이미 존재하면 삭제 여부를 확인합니다.
 	/// </summary>
@@ -1785,6 +1883,9 @@ public partial class ReadWindow : Window
 	/// </summary>
 	private async Task OpenBookmarkWindowAsync()
 	{
+		if (!await AuthorizeAsync(PasswordUsage.Bookmark))
+			return;
+
 		var dlg = new BookmarkWindow();
 		var selected = await dlg.ShowAsync(this);
 		if (selected == null)
@@ -1873,6 +1974,56 @@ public partial class ReadWindow : Window
 		UpdateTitleText();
 		SetViewModeIcon(ViewMode.Single);
 		RenderBook();
+	}
+
+	/// <summary>
+	/// 시작 시 패스워드 확인이 필요한 경우 인증합니다.
+	/// </summary>
+	private async Task EnsurePasswordAtStartupAsync()
+	{
+		if (!await AuthorizeAsync(PasswordUsage.Start))
+			Close();
+	}
+
+	/// <summary>
+	/// 마지막 책 열기 전 패스워드 인증을 수행합니다.
+	/// </summary>
+	private async Task OpenLastBookAsync()
+	{
+		if (!await AuthorizeAsync(PasswordUsage.LastBook))
+			return;
+
+		OpenBook(Configs.LastFileName);
+	}
+
+	/// <summary>
+	/// 사용 위치에 따라 패스워드를 확인합니다.
+	/// </summary>
+	private async Task<bool> AuthorizeAsync(PasswordUsage usage)
+	{
+		if (!Configs.IsPasswordRequired(usage))
+			return true;
+
+		for (; ; )
+		{
+			var dlg = new PassWindow();
+			var input = await dlg.ShowAsync(this);
+
+			if (input == null)
+			{
+				Close();
+				return false;
+			}
+
+			if (Configs.TryAuthorizePassword(usage, input))
+				return true;
+
+			if (!Configs.ShouldTerminateByPasswordFailure)
+				continue;
+
+			Close();
+			return false;
+		}
 	}
 
 	/// <summary>
